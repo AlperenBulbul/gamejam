@@ -20,6 +20,11 @@ namespace LoadBearing.EditorTools
         const string LayoutPath = "Assets/Art/3D/Office/LB_OfficeLayout_Reference.fbx";
         const string CamsPath = "Assets/Art/3D/Office/LB_FocusCameras.fbx";
 
+        // Kamera ayarları (tasarımcının CAM_Player noktasına göre)
+        const float CameraForward = 0.5f;   // masaya doğru kaç metre yaklaşsın
+        const float CameraPitch = 22f;      // başlangıçta kaç derece aşağı baksın (masa + gişe birlikte görünsün)
+        const float MinLookUp = 40f;        // gişedeki müşterinin yüzüne bakabilmek için yukarı bakış sınırı
+
         [MenuItem("Load Bearing/14 - Tasarım modellerini sahneye yerleştir", priority = 14)]
         public static void Run()
         {
@@ -63,7 +68,7 @@ namespace LoadBearing.EditorTools
                 log.Add("Yerleşim 180° çevrildi (oyuncu +Z'ye bakıyor)");
             }
 
-            Vector3 playerPos = camPlayer.position;
+            Vector3 playerPos = camPlayer.position; // aşağıda masaya doğru yaklaştırılır
             Object.DestroyImmediate(cams); // içindeki kameralar ekrana çizmesin; sadece konum lazımdı
 
             // ---- 3) Greybox odayı gizle
@@ -88,10 +93,21 @@ namespace LoadBearing.EditorTools
             var camGo = GameObject.FindWithTag("MainCamera");
             if (camGo != null)
             {
-                var lookAt = Average(new[] { "Desk/Map", "Desk/FolderSpot", "Desk/RuleBinder", "Desk/Monitor", "Desk/Stamps/StampTool_Approve" });
+                var deskCenter = Average(new[] { "Desk/Map", "Desk/FolderSpot", "Desk/RuleBinder", "Desk/Monitor", "Desk/Stamps/StampTool_Approve" });
+                var fwd = Flat(deskCenter - playerPos).normalized;
+                playerPos += fwd * CameraForward; // masaya yaklaş
                 camGo.transform.position = playerPos;
-                camGo.transform.rotation = Quaternion.LookRotation(lookAt - playerPos, Vector3.up);
-                log.Add($"Kamera: {playerPos}");
+                camGo.transform.rotation = Quaternion.LookRotation(fwd, Vector3.up) * Quaternion.Euler(CameraPitch, 0f, 0f);
+                log.Add($"Kamera: {playerPos} (masaya {CameraForward} m yaklaştı, {CameraPitch}° aşağı)");
+
+                var cfg = AssetDatabase.LoadAssetAtPath<GameConfig>("Assets/_Project/Data/GameConfig.asset");
+                if (cfg != null && cfg.lookPitch < MinLookUp)
+                {
+                    cfg.lookPitch = MinLookUp;
+                    EditorUtility.SetDirty(cfg);
+                    AssetDatabase.SaveAssets();
+                    log.Add($"Yukarı bakış sınırı {MinLookUp}° yapıldı");
+                }
             }
 
             // ---- 6) Yakın bakış noktaları (masadaki objeler taşındı)

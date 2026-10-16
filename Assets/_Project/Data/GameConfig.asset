@@ -49,10 +49,12 @@ MonoBehaviour:
   - 0.15
   - 0
   nextCustomerDelay: 3
+  customerWalkSeconds: 2.5
   speechCps: 30
   blipEveryNChars: 2
   bubbleHold: 2.5
   lookYaw: 60
-  lookPitch: 25
+  lookPitch: 40
+  lookPitchDown: 45
   lookEdge: 0.2
   focusTime: 0.35
