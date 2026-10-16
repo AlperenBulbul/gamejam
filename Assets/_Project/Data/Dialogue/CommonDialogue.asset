@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09508edf0da49664e9bbff72a15391fe, type: 3}
+  m_Name: CommonDialogue
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.DialogueSet
+  impatient:
+  - "H\u0131h... Daha ne kadar s\xFCrecek bu."
+  - Saatim ilerliyor ama.
+  - "Bir imza i\xE7in bu kadar bekleme olmaz."
+  angry:
+  - "Hrrm. M\xFCd\xFCr\xFCn\xFCze anlataca\u011F\u0131m bunu."
+  - "\xC7ay oca\u011F\u0131 m\u0131 buras\u0131, ofis mi."
+  - "Ben vergimi bunun i\xE7in mi \xF6d\xFCyorum."
+  rage:
+  - YETER ARTIK!
+  - "Bir saattir buraday\u0131m!"
+  - "BU NE REZ\u0130LL\u0130K!"
+  leave:
+  - "Ba\u015Fka kap\u0131 da var. Ho\u015F\xE7a kal\u0131n!"

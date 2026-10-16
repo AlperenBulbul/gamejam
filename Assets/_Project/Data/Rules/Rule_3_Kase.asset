@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8336485ede07f174ca74f29d56ddc6bf, type: 3}
+  m_Name: Rule_3_Kase
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.RuleData
+  id: 3_Kase
+  title: "M\xFChendis ka\u015Fesi"
+  body: "Ba\u015Fvurudaki ruhsat numaras\u0131 m\xFChendis sicilinde B\u0130REB\u0130R bulunmal\u0131d\u0131r.\n\nM\xDCHEND\u0130S S\u0130C\u0130L\u0130\n\u0130MO-1047\n\u0130MO-2213\n\u0130MO-3390\n\u0130MO-4521\n\u0130MO-5876\n\u0130MO-6102"
+  dayIntroduced: 2

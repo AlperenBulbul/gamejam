@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18a074e2fbbe654f81049589f83b809, type: 3}
+  m_Name: C4
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
+  id: C4
+  day: 2
+  displayName: Murat Demir
+  role: "Kalabal\u0131k bir ailenin babas\u0131"
+  ada: 15
+  parsel: 2
+  areaM2: 180
+  floors: 4
+  use: Konut
+  licenseNo: "\u0130MO-2213"
+  soil: 0
+  inFloodZone: 0
+  onFaultLine: 0
+  mapPixel: {x: 0, y: 0}
+  bribe: 0
+  patienceSeconds: 90
+  voicePitch: 0.95
+  body: 0
+  variantMaterial: {fileID: 0}
+  greeting: "Be\u015F \xE7ocuk, bir babaanne. D\xF6rt kat laz\u0131m bize."
+  approveLine: "Sa\u011F ol karde\u015Fim, sa\u011F ol!"
+  rejectLine: "Peki biz nereye s\u0131\u011Faca\u011F\u0131z..."
+  expectedValid: 0

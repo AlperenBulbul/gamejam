@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 779ecf1d16974894f82c795fba4591dd, type: 3}
+  m_Name: End_4_Fired
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.EndingData
+  id: Fired
+  priority: 4
+  title: Kovuldun
+  body: "Masandaki e\u015Fyalar bir koliye kondu. Kap\u0131 arkandan kapand\u0131."
+  image: {fileID: 0}
+  stinger: {fileID: 0}

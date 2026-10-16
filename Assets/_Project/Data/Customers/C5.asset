@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18a074e2fbbe654f81049589f83b809, type: 3}
+  m_Name: C5
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
+  id: C5
+  day: 2
+  displayName: "Fatma \xC7elik"
+  role: "Yaln\u0131z ya\u015Fayan ya\u015Fl\u0131 kad\u0131n"
+  ada: 9
+  parsel: 11
+  areaM2: 140
+  floors: 1
+  use: Konut
+  licenseNo: "\u0130MO-4512"
+  soil: 0
+  inFloodZone: 0
+  onFaultLine: 0
+  mapPixel: {x: 0, y: 0}
+  bribe: 0
+  patienceSeconds: 110
+  voicePitch: 1.35
+  body: 1
+  variantMaterial: {fileID: 0}
+  greeting: "K\u0131z\u0131m, tek katl\u0131 k\xFC\xE7\xFCk bir ev. M\xFChendis bey her \u015Feyi haz\u0131rlad\u0131."
+  approveLine: "\xC7ok te\u015Fekk\xFCr ederim k\u0131z\u0131m."
+  rejectLine: "M\xFChendis bey \xF6yle dememi\u015Fti ama..."
+  expectedValid: 0

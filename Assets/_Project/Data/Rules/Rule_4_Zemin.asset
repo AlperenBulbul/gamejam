@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8336485ede07f174ca74f29d56ddc6bf, type: 3}
+  m_Name: Rule_4_Zemin
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.RuleData
+  id: 4_Zemin
+  title: "Zemin et\xFCd\xFC"
+  body: "5 ve \xFCzeri katl\u0131 yap\u0131lar i\xE7in zemin et\xFCd\xFC zorunludur.\n\n\u2022 Zemin et\xFCd\xFC yoksa: RET\n\u2022 Zemin YUMU\u015EAK ise: RET\n\u2022 Zemin SA\u011ELAM ise: kurala uygun"
+  dayIntroduced: 2

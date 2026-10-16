@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18a074e2fbbe654f81049589f83b809, type: 3}
+  m_Name: C1
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
+  id: C1
+  day: 1
+  displayName: "Hasan ve Emine Y\u0131ld\u0131z"
+  role: "Emekli \xE7ift"
+  ada: 12
+  parsel: 4
+  areaM2: 150
+  floors: 2
+  use: Konut
+  licenseNo: "\u0130MO-1047"
+  soil: 0
+  inFloodZone: 0
+  onFaultLine: 0
+  mapPixel: {x: 0, y: 0}
+  bribe: 0
+  patienceSeconds: 120
+  voicePitch: 0.85
+  body: 0
+  variantMaterial: {fileID: 0}
+  greeting: "Merhaba evlad\u0131m. Torunlar gelince s\u0131\u011Fal\u0131m diye k\xFC\xE7\xFCk bir ev."
+  approveLine: "Allah raz\u0131 olsun evlad\u0131m!"
+  rejectLine: "Ama... b\xFCt\xFCn birikimimizi koyduk."
+  expectedValid: 1

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98c544cd23f788c46a2b15d3f9b4c7b2, type: 3}
+  m_Name: Day1
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.DayData
+  dayNumber: 1
+  customers:
+  - {fileID: 11400000, guid: 71c0e26887f61e944bd472cfaf8c699e, type: 2}
+  - {fileID: 11400000, guid: e8051cd5afd64af4f9a4b90881f34e6c, type: 2}
+  - {fileID: 11400000, guid: ab10ee3aaa4274040b40525fbf329804, type: 2}
+  newRulePages:
+  - {fileID: 11400000, guid: 5955abf7d62ba804ebba402cc028acd4, type: 2}
+  - {fileID: 11400000, guid: 63065d5c55e8c524c97046cbd4b02675, type: 2}
+  endEvent: 0
+  lightingPreset: Day1
+  openingHeadline: "Karaova'da yeni yap\u0131 denetim ofisi a\xE7\u0131ld\u0131"

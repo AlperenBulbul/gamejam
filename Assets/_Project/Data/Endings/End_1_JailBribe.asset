@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 779ecf1d16974894f82c795fba4591dd, type: 3}
+  m_Name: End_1_JailBribe
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.EndingData
+  id: JailBribe
+  priority: 1
+  title: "Hapis \u2014 R\xFC\u015Fvet Ortaya \xC7\u0131kt\u0131"
+  body: "Man\u015Fette senin ad\u0131n ve zarf\u0131n foto\u011Fraf\u0131."
+  image: {fileID: 0}
+  stinger: {fileID: 0}

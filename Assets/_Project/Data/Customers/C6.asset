@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18a074e2fbbe654f81049589f83b809, type: 3}
+  m_Name: C6
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
+  id: C6
+  day: 2
+  displayName: "Okan Yal\u0131n"
+  role: "Yal\u0131n Yap\u0131 A.\u015E. temsilcisi"
+  ada: 21
+  parsel: 6
+  areaM2: 420
+  floors: 5
+  use: Konut
+  licenseNo: "\u0130MO-3390"
+  soil: 1
+  inFloodZone: 0
+  onFaultLine: 0
+  mapPixel: {x: 0, y: 0}
+  bribe: 0
+  patienceSeconds: 80
+  voicePitch: 1.05
+  body: 0
+  variantMaterial: {fileID: 0}
+  greeting: "Yal\u0131n Yap\u0131. Zemin et\xFCd\xFC ve ka\u015Fe ekte. Her \u015Fey tam."
+  approveLine: "G\xFCzel. \u0130\u015Fimizi biliriz."
+  rejectLine: "Bunu itiraz yoluyla \xE7\xF6zeriz."
+  expectedValid: 1

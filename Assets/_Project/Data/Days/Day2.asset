@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98c544cd23f788c46a2b15d3f9b4c7b2, type: 3}
+  m_Name: Day2
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.DayData
+  dayNumber: 2
+  customers:
+  - {fileID: 11400000, guid: 4b633c2d23cf5034c8f5f3b3b034b11e, type: 2}
+  - {fileID: 11400000, guid: 16a1bef8c007c6f4797297df008ad929, type: 2}
+  - {fileID: 11400000, guid: 1acac304f5ea2e04f9c68fde03466f07, type: 2}
+  - {fileID: 11400000, guid: 466400c4d24482d4f89e16da3032f8e1, type: 2}
+  newRulePages:
+  - {fileID: 11400000, guid: d100681a1cf9e2b48b00faf06e2e04d2, type: 2}
+  - {fileID: 11400000, guid: 586d6a5573194e14280d652fededbf97, type: 2}
+  endEvent: 1
+  lightingPreset: Day2
+  openingHeadline: 

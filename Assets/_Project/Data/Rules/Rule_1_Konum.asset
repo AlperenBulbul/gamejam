@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8336485ede07f174ca74f29d56ddc6bf, type: 3}
+  m_Name: Rule_1_Konum
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.RuleData
+  id: 1_Konum
+  title: "Yasak b\xF6lgeler"
+  body: "\u2022 FAY HATTI: Kuzey Fay\u0131'na (haritada k\u0131rm\u0131z\u0131 \xE7izgi) de\u011Fen arsaya yap\u0131 yap\u0131lamaz.\n\n\u2022 DERE YATA\u011EI: Kara Dere ta\u015Fk\u0131n alan\u0131n\u0131n (haritada mavi tarama) i\xE7indeki arsaya yap\u0131 yap\u0131lamaz."
+  dayIntroduced: 1

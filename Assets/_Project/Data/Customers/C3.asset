@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18a074e2fbbe654f81049589f83b809, type: 3}
+  m_Name: C3
+  m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
+  id: C3
+  day: 1
+  displayName: Selin Kaya
+  role: "Aceleci yat\u0131r\u0131mc\u0131"
+  ada: 3
+  parsel: 8
+  areaM2: 260
+  floors: 3
+  use: "D\xFCkk\xE2n + konut"
+  licenseNo: "\u0130MO-3390"
+  soil: 0
+  inFloodZone: 1
+  onFaultLine: 0
+  mapPixel: {x: 0, y: 0}
+  bribe: 0
+  patienceSeconds: 60
+  voicePitch: 1.25
+  body: 1
+  variantMaterial: {fileID: 0}
+  greeting: Acelem var. Damga, imza, bitti.
+  approveLine: "Harika. Zaman parad\u0131r."
+  rejectLine: Ciddi misin. Bu arsaya ne kadar para verdim biliyor musun.
+  expectedValid: 0
