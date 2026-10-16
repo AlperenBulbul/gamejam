@@ -64,7 +64,7 @@ namespace LoadBearing
                 $"ODAK: {focus}\n" +
                 $"Bakiye: {r.balance} TL\n" +
                 $"Ceza: {r.penalties}   Haksız ret: {r.wrongfulRejects}\n" +
-                $"Rüşvet: {(r.anyBribe ? "alındı" : "yok")}   Kovulma bekliyor: {r.pendingFired}\n" +
+                $"Rüşvet: {(r.anyBribe ? $"alındı ({r.ledger.bribe} TL)" : "yok")}{(r.bribeOnApproved != null && r.bribeOnApproved != "" ? $" · onaylandı: {r.bribeOnApproved}" : "")}   Kovulma bekliyor: {r.pendingFired}\n" +
                 $"Son karar: {last}   Bugün ücret: {r.ledger.fees} TL\n" +
                 $"Müşteri: {CustomerInfo()}\n" +
                 $"\nF1 doğru mühür · F4 günü bitir · F6 sabrı dondur\nF8 akış · F9 2. gün · F10 gizle");
