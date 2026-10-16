@@ -180,7 +180,7 @@ namespace LoadBearing
         {
             var gm = GameManager.Instance;
             var c = folder.Current;
-            if (gm == null || c == null) return;
+            if (gm == null || c == null || folder.Decided || folder.Leaving) return; // müşteri o an gittiyse sayılmaz
             var run = gm.Run;
             var cfg = gm.Config;
             bool valid = Validator.IsValid(c, run.day, cfg);

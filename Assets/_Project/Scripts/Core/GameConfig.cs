@@ -53,6 +53,8 @@ namespace LoadBearing
         [Tooltip("Sabır bu eşiklerin üstündeyse o aşamada: Sakin > 0.70, Sabırsız > 0.40, Sinirli > 0.15, Patlama > 0")]
         public float[] patienceStages = { 0.70f, 0.40f, 0.15f, 0.00f };
         public float nextCustomerDelay = 3f;
+        [Tooltip("Müşterinin kapıdan gişeye yürüme süresi (sn)")]
+        public float customerWalkSeconds = 2.5f;
 
         [Header("Konuşma")]
         public float speechCps = 30f;

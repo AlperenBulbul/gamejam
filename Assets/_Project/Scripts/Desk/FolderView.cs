@@ -37,6 +37,8 @@ namespace LoadBearing
         public CustomerData Current { get; private set; }
         /// Bu dosyaya mühür basıldı mı (aynı dosyaya ikinci kez basılamaz)
         public bool Decided { get; private set; }
+        /// Müşteri dosyasını geri alıyor (artık mühür basılamaz)
+        public bool Leaving { get; private set; }
 
         /// Mührün değeceği nokta: KARAR kutusunun ortası
         public Vector3 StampAreaWorld => stampArea != null
@@ -98,6 +100,7 @@ namespace LoadBearing
         void OnEnable()
         {
             GameEvents.CustomerArrived += Show;
+            GameEvents.CustomerLeaving += OnCustomerLeaving;
             GameEvents.CustomerLeft += OnCustomerLeft;
             GameEvents.StateChanged += OnStateChanged;
         }
@@ -105,15 +108,42 @@ namespace LoadBearing
         void OnDisable()
         {
             GameEvents.CustomerArrived -= Show;
+            GameEvents.CustomerLeaving -= OnCustomerLeaving;
             GameEvents.CustomerLeft -= OnCustomerLeft;
             GameEvents.StateChanged -= OnStateChanged;
         }
 
         void OnCustomerLeft(CustomerData c, bool angry) { if (c == Current) Hide(); }
 
+        /// Müşteri dosyasını geri alıyor: gişeye doğru kayarak kaybolur
+        void OnCustomerLeaving(CustomerData c)
+        {
+            if (c != Current) return;
+            Leaving = true;
+            var fc = FocusController.Instance;
+            if (fc != null && fc.State == FocusState.Folder) fc.Back();
+            if (interactable != null) interactable.enabled = false;
+            StopAllCoroutines();
+            StartCoroutine(SlideOutAndHide());
+        }
+
+        IEnumerator SlideOutAndHide()
+        {
+            var t = content.transform;
+            Vector3 from = t.localPosition, to = slideFromOffset;
+            float time = slideTime * 0.8f;
+            for (float e = 0f; e < time; e += Time.deltaTime)
+            {
+                float k = Mathf.Pow(e / time, 2f); // hızlanarak gider
+                t.localPosition = Vector3.Lerp(from, to, k);
+                yield return null;
+            }
+            HideImmediate();
+        }
+
         void OnStateChanged(GameState s)
         {
-            if (s != GameState.Working && s != GameState.FinalShift) Hide();
+            if (s != GameState.Working) Hide();
         }
 
         public void Show(CustomerData c)
@@ -121,6 +151,7 @@ namespace LoadBearing
             if (c == null) return;
             Current = c;
             Decided = false;
+            Leaving = false;
             if (stampMark != null) stampMark.SetActive(false);
             Fill(c);
 
@@ -146,6 +177,7 @@ namespace LoadBearing
         {
             Current = null;
             Decided = false;
+            Leaving = false;
             if (stampMark != null) stampMark.SetActive(false);
             StopAllCoroutines();
             if (content != null) { content.SetActive(false); content.transform.localPosition = Vector3.zero; }

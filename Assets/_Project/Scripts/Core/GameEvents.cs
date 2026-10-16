@@ -10,6 +10,7 @@ namespace LoadBearing
     {
         public static event Action<GameState> StateChanged;
         public static event Action<CustomerData> CustomerArrived;
+        public static event Action<CustomerData> CustomerLeaving;            // dosyasını alıp kapıya yürümeye başladı
         public static event Action<CustomerData, bool> CustomerLeft;        // bool = sinirli mi gitti
         public static event Action<PatienceStage> PatienceStageChanged;
         public static event Action<CustomerData, bool> Stamped;             // bool = onaylandı mı
@@ -30,6 +31,7 @@ namespace LoadBearing
 
         public static void RaiseStateChanged(GameState s) => StateChanged?.Invoke(s);
         public static void RaiseCustomerArrived(CustomerData c) => CustomerArrived?.Invoke(c);
+        public static void RaiseCustomerLeaving(CustomerData c) => CustomerLeaving?.Invoke(c);
         public static void RaiseCustomerLeft(CustomerData c, bool angry) => CustomerLeft?.Invoke(c, angry);
         public static void RaisePatienceStageChanged(PatienceStage s) => PatienceStageChanged?.Invoke(s);
         public static void RaiseStamped(CustomerData c, bool approved) => Stamped?.Invoke(c, approved);
@@ -52,7 +54,7 @@ namespace LoadBearing
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetAll()
         {
-            StateChanged = null; CustomerArrived = null; CustomerLeft = null; PatienceStageChanged = null;
+            StateChanged = null; CustomerArrived = null; CustomerLeaving = null; CustomerLeft = null; PatienceStageChanged = null;
             Stamped = null; BribeTaken = null; PenaltyAdded = null; WrongfulReject = null;
             SiteCreated = null; FaultStarted = null; FaultFixed = null; FaultsCleared = null;
             StepCompleted = null; SiteFinished = null; SiteFlooded = null; SiteCollapsed = null;
