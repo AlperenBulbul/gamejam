@@ -22,7 +22,7 @@ namespace LoadBearing
             var gm = GameManager.Instance;
             if (kb == null || gm == null) return;
 
-            // F1: doğru mühür           -> D-07'de bağlanacak
+            if (kb.f1Key.wasPressedThisFrame && StampController.Instance != null) StampController.Instance.DebugAutoStamp();
             // F2: hata başlat           -> D-11'de bağlanacak
             if (kb.f3Key.wasPressedThisFrame) { gm.Run.balance += 1000; Debug.Log("[Debug] +1000 TL"); }
             // F4: gün sonuna geç        -> D-08'de bağlanacak
@@ -58,13 +58,20 @@ namespace LoadBearing
             if (!showOverlay || gm == null || gm.Run == null) return;
             var r = gm.Run;
             var focus = FocusController.Instance != null ? FocusController.Instance.State.ToString() : "-";
-            GUI.Box(new Rect(10, 10, 320, 175),
+            string last = "-";
+            if (r.decisions.Count > 0)
+            {
+                var d = r.decisions[r.decisions.Count - 1];
+                last = $"{d.customerId} {(d.approved ? "ONAY" : "RET")} ({(d.approved == d.valid ? "doğru" : "YANLIŞ")})";
+            }
+            GUI.Box(new Rect(10, 10, 340, 205),
                 $"DURUM: {gm.State}   GÜN: {r.day}\n" +
                 $"ODAK: {focus}\n" +
                 $"Bakiye: {r.balance} TL\n" +
                 $"Ceza: {r.penalties}   Haksız ret: {r.wrongfulRejects}\n" +
                 $"Rüşvet: {(r.anyBribe ? "alındı" : "yok")}   Kovulma bekliyor: {r.pendingFired}\n" +
-                $"\nF8 akış · F9 2. gün · F10 gizle\nShift+1..7 dosya getir · Shift+0 kaldır");
+                $"Son karar: {last}   Bugün ücret: {r.ledger.fees} TL\n" +
+                $"\nF1 doğru mühür · F8 akış · F9 2. gün · F10 gizle\nShift+1..7 dosya getir · Shift+0 kaldır");
         }
     }
 }

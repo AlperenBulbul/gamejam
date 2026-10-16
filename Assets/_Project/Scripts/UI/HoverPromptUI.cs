@@ -37,7 +37,9 @@ namespace LoadBearing
             if (panel.gameObject.activeSelf != show) panel.gameObject.SetActive(show);
             if (!show || canvasRect == null) return;
 
-            if (label.text != hovered.prompt) label.text = hovered.prompt;
+            var fc = FocusController.Instance;
+            string text = fc != null && fc.State == FocusState.HoldingStamp ? "Mühür bas" : hovered.prompt;
+            if (label.text != text) label.text = text;
 
             // Ekran pikselini canvas koordinatına çevir (Screen Space Overlay -> kamera null)
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, mouse.position.ReadValue(), null, out var local);
