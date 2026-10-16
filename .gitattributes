@@ -1,0 +1,66 @@
+* text=auto
+
+# Unity YAML: merged with Unity's Smart Merge (setup.ps1 configures the driver)
+*.unity       text merge=unityyamlmerge eol=lf
+*.prefab      text merge=unityyamlmerge eol=lf
+*.asset       text merge=unityyamlmerge eol=lf
+*.mat         text merge=unityyamlmerge eol=lf
+*.anim        text merge=unityyamlmerge eol=lf
+*.controller  text merge=unityyamlmerge eol=lf
+*.overrideController text merge=unityyamlmerge eol=lf
+*.physicMaterial text merge=unityyamlmerge eol=lf
+*.physicsMaterial2D text merge=unityyamlmerge eol=lf
+*.playable    text merge=unityyamlmerge eol=lf
+*.mask        text merge=unityyamlmerge eol=lf
+*.brush       text merge=unityyamlmerge eol=lf
+*.flare       text merge=unityyamlmerge eol=lf
+*.fontsettings text merge=unityyamlmerge eol=lf
+*.guiskin     text merge=unityyamlmerge eol=lf
+*.giparams    text merge=unityyamlmerge eol=lf
+*.renderTexture text merge=unityyamlmerge eol=lf
+*.spriteatlas text merge=unityyamlmerge eol=lf
+*.terrainlayer text merge=unityyamlmerge eol=lf
+*.mixer       text merge=unityyamlmerge eol=lf
+*.shadervariants text merge=unityyamlmerge eol=lf
+*.preset      text merge=unityyamlmerge eol=lf
+*.meta        text merge=unityyamlmerge eol=lf
+
+# Code
+*.cs     text diff=csharp
+*.shader text
+*.hlsl   text
+*.json   text
+*.md     text
+
+# Binary art/audio/models (never try to merge these: whoever owns the file wins)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.psd binary
+*.psb binary
+*.aseprite binary
+*.ase binary
+*.kra binary
+*.tga binary
+*.tif binary
+*.tiff binary
+*.exr binary
+*.hdr binary
+*.gif binary
+*.fbx binary
+*.obj binary
+*.blend binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.aif binary
+*.aiff binary
+*.mp4 binary
+*.mov binary
+*.ttf binary
+*.otf binary
+*.dll binary
+
+# Windows scripts
+*.bat text eol=crlf
+*.ps1 text eol=crlf
