@@ -25,6 +25,7 @@ namespace LoadBearing
         public static event Action<ConstructionSite> SiteFlooded;
         public static event Action<ConstructionSite> SiteCollapsed;
         public static event Action<FocusState> FocusChanged;
+        public static event Action<FocusState, FocusState> FocusTransitionStarted; // (nereden, nereye) kamera hareketi başlarken
         public static event Action<int> DayEnded;
 
         public static void RaiseStateChanged(GameState s) => StateChanged?.Invoke(s);
@@ -44,6 +45,7 @@ namespace LoadBearing
         public static void RaiseSiteFlooded(ConstructionSite s) => SiteFlooded?.Invoke(s);
         public static void RaiseSiteCollapsed(ConstructionSite s) => SiteCollapsed?.Invoke(s);
         public static void RaiseFocusChanged(FocusState f) => FocusChanged?.Invoke(f);
+        public static void RaiseFocusTransitionStarted(FocusState from, FocusState to) => FocusTransitionStarted?.Invoke(from, to);
         public static void RaiseDayEnded(int day) => DayEnded?.Invoke(day);
 
         // Play'e her basışta eski abonelikleri temizle (Domain Reload kapalıysa bile güvenli)
@@ -54,7 +56,7 @@ namespace LoadBearing
             Stamped = null; BribeTaken = null; PenaltyAdded = null; WrongfulReject = null;
             SiteCreated = null; FaultStarted = null; FaultFixed = null; FaultsCleared = null;
             StepCompleted = null; SiteFinished = null; SiteFlooded = null; SiteCollapsed = null;
-            FocusChanged = null; DayEnded = null;
+            FocusChanged = null; FocusTransitionStarted = null; DayEnded = null;
         }
     }
 }

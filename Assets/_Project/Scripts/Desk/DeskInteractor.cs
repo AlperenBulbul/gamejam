@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace LoadBearing
@@ -27,14 +28,24 @@ namespace LoadBearing
             var mouse = Mouse.current;
             if (mouse == null) return;
 
+            var gm = GameManager.Instance;
+            if (gm != null && !gm.DeskInputEnabled)
+            {
+                // Menü / fiş / dükkân ekranı açık: masa tamamen kapalı
+                if (hovered != null) { hovered.SetHighlight(false); hovered = null; }
+                HasHit = false;
+                return;
+            }
+
             var fc = FocusController.Instance;
             var focus = fc != null ? fc.State : FocusState.Desk;
             bool transitioning = fc != null && fc.IsTransitioning;
+            bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
             Interactable target = null;
             HasHit = false;
 
-            if (!transitioning)
+            if (!transitioning && !overUI)
             {
                 Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
                 if (Physics.Raycast(ray, out var hit, maxDistance, mask, QueryTriggerInteraction.Collide))

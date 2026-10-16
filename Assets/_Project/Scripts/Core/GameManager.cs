@@ -14,10 +14,24 @@ namespace LoadBearing
         [SerializeField] DayData[] days;
 
         public GameConfig Config => config;
+        public DayData[] Days => days;
+
+        /// "C3" gibi id ile müşteri verisini bulur (debug ve testler için)
+        public CustomerData FindCustomer(string id)
+        {
+            foreach (var d in days)
+                if (d != null && d.customers != null)
+                    foreach (var c in d.customers)
+                        if (c != null && c.id == id) return c;
+            return null;
+        }
         public RunState Run { get; private set; }
         public GameState State { get; private set; } = GameState.MainMenu;
         public DayData CurrentDay => days[Mathf.Clamp(Run.day - 1, 0, days.Length - 1)];
         public bool IsLastDay => Run.day >= days.Length;
+
+        /// Masaya bakma / tıklama sadece bu durumlarda açık (menü, fiş, dükkân vb. ekranlarda kapalı)
+        public bool DeskInputEnabled => State == GameState.DayIntro || State == GameState.Working || State == GameState.FinalShift;
 
         void Awake()
         {

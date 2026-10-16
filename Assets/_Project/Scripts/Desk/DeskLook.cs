@@ -26,6 +26,9 @@ namespace LoadBearing
 
         void Update()
         {
+            var gm = GameManager.Instance;
+            if (gm != null && !gm.DeskInputEnabled) return; // menü vb. açıkken kamera dönmez
+
             var fc = FocusController.Instance;
             if (fc != null && (fc.IsTransitioning || !(fc.State == FocusState.Desk || fc.State == FocusState.HoldingStamp)))
                 return;

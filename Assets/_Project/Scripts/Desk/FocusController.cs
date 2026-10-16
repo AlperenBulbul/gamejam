@@ -29,7 +29,21 @@ namespace LoadBearing
             deskPosition = cameraTransform.position;
         }
 
-        float FocusTime => GameConfig.Current ? GameConfig.Current.focusTime : 0.35f;
+        void OnEnable() => GameEvents.StateChanged += OnStateChanged;
+        void OnDisable() => GameEvents.StateChanged -= OnStateChanged;
+
+        /// Masa dışı bir ekrana geçilince (fiş, menü...) yakın bakıştan çık
+        void OnStateChanged(GameState s)
+        {
+            var gm = GameManager.Instance;
+            if (gm != null && !gm.DeskInputEnabled)
+            {
+                if (State == FocusState.HoldingStamp) SetState(FocusState.Desk);
+                else if (IsFocused) Back();
+            }
+        }
+
+        float FocusTime =>GameConfig.Current ? GameConfig.Current.focusTime : 0.35f;
 
         public void FocusOn(Transform point, FocusState target)
         {
@@ -58,6 +72,7 @@ namespace LoadBearing
         {
             IsTransitioning = true;
             if (deskLook != null) deskLook.enabled = false;
+            GameEvents.RaiseFocusTransitionStarted(State, target);
 
             Vector3 p0 = cameraTransform.position;
             Quaternion r0 = cameraTransform.rotation;

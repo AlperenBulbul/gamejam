@@ -25,7 +25,7 @@ MonoBehaviour:
   soil: 1
   inFloodZone: 0
   onFaultLine: 0
-  mapPixel: {x: 0, y: 0}
+  mapPixel: {x: 1665, y: 2195}
   bribe: 0
   patienceSeconds: 80
   voicePitch: 1.05

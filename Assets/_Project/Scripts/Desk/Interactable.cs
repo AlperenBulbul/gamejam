@@ -15,6 +15,10 @@ namespace LoadBearing
         public Transform focusPoint;
         public FocusState focusState = FocusState.Desk;
 
+        [Header("İmleç ipucu")]
+        [Tooltip("Üzerine gelince imlecin yanında 'Sol tık' simgesiyle yazan kelime")]
+        public string prompt = "Aç";
+
         [Header("Olay")]
         public UnityEvent onClick;
         public event Action<Interactable> Clicked;

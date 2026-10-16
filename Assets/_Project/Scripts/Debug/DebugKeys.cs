@@ -3,12 +3,18 @@ using UnityEngine.InputSystem;
 
 namespace LoadBearing
 {
-    /// Sadece Editor ve Development Build'de çalışır (Geliştirme dokümanı bölüm 8).
+    /// Sadece Editor ve Development Build'de çalışır (Debug.isDebugBuild) (Geliştirme dokümanı bölüm 8).
     /// Yeni sistem eklendikçe ilgili tuş buraya bağlanır.
     public class DebugKeys : MonoBehaviour
     {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
         bool showOverlay = true;
+        CustomerData lastDebugCustomer;
+
+        // Editor'da ve Development Build'de açık, normal (release) build'de kendini kapatır
+        void Awake()
+        {
+            if (!Debug.isDebugBuild) enabled = false;
+        }
 
         void Update()
         {
@@ -26,6 +32,24 @@ namespace LoadBearing
             if (kb.f8Key.wasPressedThisFrame) gm.DebugAdvance();          // akışı bir adım ilerlet
             if (kb.f9Key.wasPressedThisFrame) gm.DebugJumpToDay(2);
             if (kb.f10Key.wasPressedThisFrame) showOverlay = !showOverlay;
+
+            // GEÇİCİ (Adım 7'de müşteri sırası gelince gerek kalmaz):
+            // Shift + 1..7 = C1..C7'nin dosyasını masaya getir, Shift + 0 = dosyayı kaldır
+            bool shift = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+            if (shift)
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    if (!kb[Key.Digit1 + i].wasPressedThisFrame) continue;
+                    var c = gm.FindCustomer($"C{i + 1}");
+                    if (c != null) { lastDebugCustomer = c; GameEvents.RaiseCustomerArrived(c); }
+                }
+                if (kb.digit0Key.wasPressedThisFrame && lastDebugCustomer != null)
+                {
+                    GameEvents.RaiseCustomerLeft(lastDebugCustomer, false);
+                    lastDebugCustomer = null;
+                }
+            }
         }
 
         void OnGUI()
@@ -34,14 +58,13 @@ namespace LoadBearing
             if (!showOverlay || gm == null || gm.Run == null) return;
             var r = gm.Run;
             var focus = FocusController.Instance != null ? FocusController.Instance.State.ToString() : "-";
-            GUI.Box(new Rect(10, 10, 300, 150),
+            GUI.Box(new Rect(10, 10, 320, 175),
                 $"DURUM: {gm.State}   GÜN: {r.day}\n" +
                 $"ODAK: {focus}\n" +
                 $"Bakiye: {r.balance} TL\n" +
                 $"Ceza: {r.penalties}   Haksız ret: {r.wrongfulRejects}\n" +
                 $"Rüşvet: {(r.anyBribe ? "alındı" : "yok")}   Kovulma bekliyor: {r.pendingFired}\n" +
-                $"\nF8 akışı ilerlet · F9 2. gün · F10 gizle");
+                $"\nF8 akış · F9 2. gün · F10 gizle\nShift+1..7 dosya getir · Shift+0 kaldır");
         }
-#endif
     }
 }
