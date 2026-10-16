@@ -7,6 +7,7 @@ namespace LoadBearing
     /// WalkIn -> Waiting (sabır azalır) -> Reacting -> WalkOut -> (yok olur)
     /// Sabır bitince (Gone) dosyasını alıp sinirli çıkar: +1 ceza (GDD bölüm 3).
     /// Replikler SpeechSystem ile altyazı + mırıltı sesi olarak çıkar.
+    /// Karakter modeli varsa (Animator): konuşurken "Talking", sinirliyken "Angry", diğer zamanlar "Idle" durumu oynar.
     public class CustomerController : MonoBehaviour
     {
         public enum Phase { WalkIn, Waiting, Reacting, WalkOut, Gone }
@@ -32,6 +33,15 @@ namespace LoadBearing
         public DialogueSet dialogue;
         public float reactTime = 1.3f;
 
+        [Header("Animasyon (karakter modeli)")]
+        [Tooltip("Boşsa çocuklarda aranır. Greybox gövdede yoktur.")]
+        public Animator animator;
+        public float animFade = 0.25f;
+
+        const string AnimIdle = "Idle", AnimTalk = "Talking", AnimAngry = "Angry";
+        string animState;
+        float talkUntil;
+
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static Transform glass;
         static Vector3 glassHome;
@@ -50,12 +60,40 @@ namespace LoadBearing
             walkTime = Mathf.Max(0.2f, walkSeconds);
             transform.position = door;
             mpb = new MaterialPropertyBlock();
+            if (animator == null) animator = GetComponentInChildren<Animator>();
             if (glass == null)
             {
                 var g = GameObject.Find("Counter/Glass");
                 if (g != null) { glass = g.transform; glassHome = glass.localPosition; }
             }
             StartCoroutine(Run());
+        }
+
+        void Update() => UpdateAnimation();
+
+        /// Hangi animasyon oynasın: yürürken duruş, konuşurken el kol, sinirliyken parmak sallama
+        void UpdateAnimation()
+        {
+            if (animator == null || !animator.isActiveAndEnabled) return;
+            string want;
+            switch (Current)
+            {
+                case Phase.Waiting:
+                    if (Stage >= PatienceStage.Angry) want = AnimAngry;
+                    else want = Time.time < talkUntil ? AnimTalk : AnimIdle;
+                    break;
+                case Phase.Reacting:
+                    want = approved ? AnimTalk : AnimAngry;
+                    break;
+                default:
+                    want = AnimIdle;
+                    break;
+            }
+            if (want == animState) return;
+            int hash = Animator.StringToHash(want);
+            if (!animator.HasState(0, hash)) return;
+            animator.CrossFadeInFixedTime(hash, animState == null ? 0f : animFade, 0);
+            animState = want;
         }
 
         void OnEnable() => GameEvents.Stamped += OnStamped;
@@ -211,6 +249,9 @@ namespace LoadBearing
         void Say(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
+            var cfg = GameManager.Instance != null ? GameManager.Instance.Config : null;
+            float cps = cfg != null ? Mathf.Max(5f, cfg.speechCps) : 30f;
+            talkUntil = Time.time + line.Length / cps + 0.4f; // altyazı yazıldığı sürece konuşur
             if (SpeechSystem.Instance != null) SpeechSystem.Instance.Say(Data, line, Stage); // altyazı + mırıltı
             Debug.Log($"[Müşteri] {Data.displayName} ({Stage}): {line}");
         }
