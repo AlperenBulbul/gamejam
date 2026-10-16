@@ -155,6 +155,9 @@ namespace LoadBearing.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log("<color=lime>[Load Bearing]</color> Tasarım modelleri yerleştirildi.\n - " + string.Join("\n - ", log));
+
+            // Duvar yazıları / etiketler yüzeyle çakışmasın (menü 16 ile aynı)
+            DecalFix.Run();
         }
 
         // ------------------------------------------------------------------ yardımcılar

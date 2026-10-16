@@ -5,20 +5,25 @@ namespace LoadBearing
 {
     /// Masadaki kâğıt harita. Haritaya yakından bakarken (kamera tam tepeden bakar):
     ///  - Tekerlek: 3 kademe yakınlaştır / uzaklaştır, imlecin olduğu noktaya doğru
-    ///    (imlecin altındaki yer zoom sırasında yerinde kalır)
-    ///  - Yakınken kamera fareyi takip eder (panMode):
-    ///      EdgeScroll  = imleç ekran kenarına gidince o yöne kayar (masada etrafa bakmak gibi)
-    ///      FollowMouse = imlecin ekrandaki yeri haritanın o bölgesine karşılık gelir (büyüteç gibi)
-    ///  - Görüş harita kenarından dışarı çıkmaz.
-    /// Harita, piksel uzayında (4096 x 2730, sol üst = 0,0) çizilmiş dünya-uzayı bir Canvas'tır.
+    ///  - Yakınken kamera fareyi takip eder (panMode: EdgeScroll / FollowMouse)
+    ///  - Boşluk: ASETAT (fay hattı + taşkın alanı katmanı) aç / kapat
+    /// Harita yüzeyi: tasarımcının SM_Map modeli (mapRenderer). Yoksa eski greybox canvas (mapCanvas) kullanılır.
+    /// PixelToWorld: harita pikseli (sol üst 0,0) -> dünyadaki nokta (iğneler için), mesh UV'leri üzerinden.
     public class MapView : MonoBehaviour
     {
         public enum PanMode { EdgeScroll, FollowMouse }
 
         [Header("Harita")]
+        [Tooltip("Tasarımcının harita modeli (M_Map_Karaova materyalli renderer)")]
+        public Renderer mapRenderer;
+        [Tooltip("Eski greybox harita (mapRenderer yoksa)")]
         public RectTransform mapCanvas;
-        public Vector2 mapPixelSize = new Vector2(4096f, 2730f);
+        public Vector2 mapPixelSize = new Vector2(4800f, 2640f);
         public Vector2 mapWorldSize = new Vector2(0.6f, 0.4f);
+
+        [Header("Asetat")]
+        public GameObject overlay;
+        public bool overlayStartsVisible = false;
 
         [Header("Yakınlaştırma")]
         [Tooltip("Kamera mesafesi çarpanı: 1 = normal, küçüldükçe yakın")]
@@ -32,6 +37,8 @@ namespace LoadBearing
         [Tooltip("Kenarın en dibinde saniyede kaç 'ekran yüksekliği' kayar")]
         public float edgeSpeed = 1.1f;
 
+        public bool OverlayVisible => overlay != null && overlay.activeSelf;
+
         Transform cam;
         Camera camComp;
         Vector3 basePos;
@@ -39,17 +46,44 @@ namespace LoadBearing
         bool active;
         int zoom;
         float curZoom = 1f;
-        Vector2 pan, curPan;          // dünya x / z kayması
+        Vector2 pan, curPan;
         float nextWheelTime;
+
+        // UV -> dünya için mesh önbelleği
+        Vector3[] verts;
+        Vector2[] uvs;
+        int[] tris;
+
+        Vector3 SurfaceCenter
+        {
+            get
+            {
+                if (mapRenderer != null) return mapRenderer.bounds.center;
+                if (mapCanvas != null) return mapCanvas.position;
+                return transform.position;
+            }
+        }
 
         void Start()
         {
-            // Yakın bakış noktasını haritanın tam tepesine al (eğik bakış zoom'da kaymaya yol açıyordu)
-            var it = GetComponent<Interactable>();
-            if (it != null && it.focusPoint != null && mapCanvas != null)
+            if (overlay != null) overlay.SetActive(overlayStartsVisible);
+
+            if (mapRenderer != null)
             {
-                var center = mapCanvas.position;
+                var b = mapRenderer.bounds;
+                mapWorldSize = new Vector2(b.size.x, b.size.z);
+                CacheMesh();
+            }
+
+            // Yakın bakış noktasını haritanın tam tepesine al
+            var it = GetComponent<Interactable>();
+            if (it != null && it.focusPoint != null)
+            {
+                var center = SurfaceCenter;
                 float dist = Vector3.Distance(it.focusPoint.position, center);
+                // Haritanın tamamı sığsın (16:9, dikey FOV ~70)
+                float fit = Mathf.Max(mapWorldSize.y, mapWorldSize.x / 1.7f) * 0.5f / Mathf.Tan(35f * Mathf.Deg2Rad) * 1.08f;
+                dist = Mathf.Max(fit, 0.2f);
                 it.focusPoint.position = center + Vector3.up * dist;
                 it.focusPoint.rotation = Quaternion.LookRotation(Vector3.down, Vector3.forward); // ekranın üstü = kuzey
             }
@@ -59,12 +93,20 @@ namespace LoadBearing
         {
             GameEvents.FocusChanged += OnFocusChanged;
             GameEvents.FocusTransitionStarted += OnTransition;
+            GameEvents.StateChanged += OnStateChanged;
         }
 
         void OnDisable()
         {
             GameEvents.FocusChanged -= OnFocusChanged;
             GameEvents.FocusTransitionStarted -= OnTransition;
+            GameEvents.StateChanged -= OnStateChanged;
+        }
+
+        void OnStateChanged(GameState s)
+        {
+            // Yeni oyunda asetat başlangıç durumuna döner
+            if (s == GameState.MainMenu && overlay != null) overlay.SetActive(overlayStartsVisible);
         }
 
         void OnFocusChanged(FocusState f)
@@ -74,7 +116,7 @@ namespace LoadBearing
             if (camComp == null) return;
             cam = camComp.transform;
             basePos = cam.position;
-            float planeY = mapCanvas != null ? mapCanvas.position.y : transform.position.y;
+            float planeY = SurfaceCenter.y;
             float down = Mathf.Max(0.05f, -cam.forward.y);
             baseDist = (basePos.y - planeY) / down;
             zoom = 0; curZoom = 1f; pan = curPan = Vector2.zero;
@@ -83,7 +125,13 @@ namespace LoadBearing
 
         void OnTransition(FocusState from, FocusState to)
         {
-            if (from == FocusState.Map) active = false; // FocusController kamerayı masaya geri götürür
+            if (from == FocusState.Map) active = false;
+        }
+
+        public void ToggleOverlay()
+        {
+            if (overlay == null) return;
+            overlay.SetActive(!overlay.activeSelf);
         }
 
         void LateUpdate()
@@ -91,6 +139,9 @@ namespace LoadBearing
             if (!active || cam == null) return;
             var fc = FocusController.Instance;
             if (fc == null || fc.State != FocusState.Map || fc.IsTransitioning) return;
+
+            var kb = Keyboard.current;
+            if (kb != null && kb.spaceKey.wasPressedThisFrame) ToggleOverlay();
 
             var mouse = Mouse.current;
             float dt = Time.unscaledDeltaTime;
@@ -100,7 +151,6 @@ namespace LoadBearing
                 Vector2 m = mouse.position.ReadValue();
                 float h = Mathf.Max(1, Screen.height);
 
-                // Tekerlek: imleç noktasına zoom
                 float wheel = mouse.scroll.ReadValue().y;
                 if (Time.unscaledTime >= nextWheelTime && Mathf.Abs(wheel) > 0.01f)
                 {
@@ -114,7 +164,6 @@ namespace LoadBearing
                     nextWheelTime = Time.unscaledTime + wheelCooldown;
                 }
 
-                // Yakınken kamera fareyi takip eder
                 if (zoom > 0 && Application.isFocused)
                 {
                     float nx = Mathf.Clamp01(m.x / Mathf.Max(1, Screen.width));
@@ -169,11 +218,58 @@ namespace LoadBearing
             pan.y = Mathf.Clamp(pan.y, -max.y, max.y);
         }
 
+        // ------------------------------------------------------------------ piksel -> dünya
+
+        void CacheMesh()
+        {
+            var mf = mapRenderer.GetComponent<MeshFilter>();
+            var mesh = mf != null ? mf.sharedMesh : null;
+            if (mesh == null) return;
+            if (!mesh.isReadable) { Debug.LogWarning("[MapView] Harita mesh'i okunamıyor (Read/Write kapalı). Menü 15 bunu açar."); return; }
+
+            int sub = 0;
+            var mats = mapRenderer.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+                if (mats[i] != null && mats[i].name.Contains("Map_Karaova")) { sub = i; break; }
+            verts = mesh.vertices;
+            uvs = mesh.uv;
+            tris = mesh.GetTriangles(Mathf.Min(sub, mesh.subMeshCount - 1));
+        }
+
         /// Harita pikseli (sol üst 0,0) -> dünya konumu (harita yüzeyinde)
         public Vector3 PixelToWorld(Vector2 px)
         {
-            var local = new Vector3(px.x - mapPixelSize.x * 0.5f, mapPixelSize.y * 0.5f - px.y, 0f);
-            return mapCanvas.TransformPoint(local);
+            var uv = new Vector2(px.x / mapPixelSize.x, 1f - px.y / mapPixelSize.y);
+            if (TryUVToWorld(uv, out var w)) return w;
+
+            // Yedek: eski canvas ya da yüzey sınırları
+            if (mapCanvas != null)
+                return mapCanvas.TransformPoint(new Vector3(px.x - mapPixelSize.x * 0.5f, mapPixelSize.y * 0.5f - px.y, 0f));
+            var c = SurfaceCenter;
+            return c + new Vector3((uv.x - 0.5f) * mapWorldSize.x, 0f, (uv.y - 0.5f) * mapWorldSize.y);
+        }
+
+        bool TryUVToWorld(Vector2 uv, out Vector3 world)
+        {
+            world = Vector3.zero;
+            if (tris == null || uvs == null || uvs.Length == 0) return false;
+            for (int i = 0; i + 2 < tris.Length; i += 3)
+            {
+                Vector2 a = uvs[tris[i]], b = uvs[tris[i + 1]], c = uvs[tris[i + 2]];
+                Vector2 v0 = b - a, v1 = c - a, v2 = uv - a;
+                float d00 = Vector2.Dot(v0, v0), d01 = Vector2.Dot(v0, v1), d11 = Vector2.Dot(v1, v1);
+                float d20 = Vector2.Dot(v2, v0), d21 = Vector2.Dot(v2, v1);
+                float den = d00 * d11 - d01 * d01;
+                if (Mathf.Abs(den) < 1e-12f) continue;
+                float v = (d11 * d20 - d01 * d21) / den;
+                float w = (d00 * d21 - d01 * d20) / den;
+                float u = 1f - v - w;
+                if (u < -1e-4f || v < -1e-4f || w < -1e-4f) continue;
+                var p = verts[tris[i]] * u + verts[tris[i + 1]] * v + verts[tris[i + 2]] * w;
+                world = mapRenderer.transform.TransformPoint(p);
+                return true;
+            }
+            return false;
         }
     }
 }

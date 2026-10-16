@@ -8,6 +8,7 @@ namespace LoadBearing
     ///  - Mühüre tıkla  -> HoldingStamp, mühür imleci takip eder
     ///  - Dosyaya tıkla -> mühür iner, KARAR kutusuna basılır, karar RunState'e yazılır
     ///  - Boş yere tıkla / sağ tık -> mühür yerine döner
+    ///  - Açık dosyaya yakından bakarken de: mührü al, formun üstüne tıkla -> KARAR kutusuna basılır
     /// DeskInteractor'dan SONRA çalışır (aynı karedeki tıklamayı doğru yorumlamak için).
     [DefaultExecutionOrder(50)]
     public class StampController : MonoBehaviour
@@ -27,6 +28,9 @@ namespace LoadBearing
 
         StampTool held;
         bool animating;
+        bool inFolder;      // mühür, açık dosyaya yakından bakarken alındı
+
+        public bool IsHolding => held != null;
         int pickFrame = -1;
         Camera cam;
         DeskInteractor interactor;
@@ -44,6 +48,17 @@ namespace LoadBearing
 
             Hook(approveStamp);
             Hook(rejectStamp);
+            AllowInFolder(approveStamp);
+            AllowInFolder(rejectStamp);
+        }
+
+        /// Açık dosyaya bakarken de mühre tıklanabilsin
+        static void AllowInFolder(StampTool s)
+        {
+            var it = s != null ? s.GetComponent<Interactable>() : null;
+            if (it == null || it.IsClickableIn(FocusState.Folder)) return;
+            var list = new System.Collections.Generic.List<FocusState>(it.clickableIn) { FocusState.Folder };
+            it.clickableIn = list.ToArray();
         }
 
         void Hook(StampTool s)
@@ -76,6 +91,7 @@ namespace LoadBearing
             StopAllCoroutines();
             animating = false;
             held = null;
+            inFolder = false;
             foreach (var st in new[] { approveStamp, rejectStamp })
             {
                 if (st == null) continue;
@@ -88,17 +104,29 @@ namespace LoadBearing
         void OnFocusChanged(FocusState f)
         {
             // Sağ tık ya da başka bir sebeple mühür bırakıldıysa yerine götür
-            if (f != FocusState.HoldingStamp && held != null && !animating) ReturnHeld();
+            if (held == null || animating) return;
+            if (inFolder && f == FocusState.Folder) return;
+            if (f != FocusState.HoldingStamp) { inFolder = false; ReturnHeld(); }
         }
 
         void Pick(StampTool s)
         {
             var fc = FocusController.Instance;
-            if (animating || fc == null || fc.State != FocusState.Desk || held != null) return;
-            held = s;
-            pickFrame = Time.frameCount;
-            SetColliders(s, false); // eldeki mühür imlecin altındaki dosyayı örtmesin
-            fc.SetHoldingStamp(true);
+            if (animating || fc == null || held != null || fc.IsTransitioning) return;
+            if (fc.State == FocusState.Desk)
+            {
+                held = s;
+                pickFrame = Time.frameCount;
+                SetColliders(s, false); // eldeki mühür imlecin altındaki dosyayı örtmesin
+                fc.SetHoldingStamp(true);
+            }
+            else if (fc.State == FocusState.Folder)
+            {
+                held = s;
+                inFolder = true;
+                pickFrame = Time.frameCount;
+                SetColliders(s, false);
+            }
         }
 
         static void SetColliders(StampTool s, bool on)
@@ -110,7 +138,10 @@ namespace LoadBearing
         {
             if (held == null || animating) return;
             var fc = FocusController.Instance;
-            if (fc == null || fc.State != FocusState.HoldingStamp) return;
+            if (fc == null) return;
+            bool deskHold = fc.State == FocusState.HoldingStamp;
+            bool folderHold = inFolder && fc.State == FocusState.Folder && !fc.IsTransitioning;
+            if (!deskHold && !folderHold) return;
 
             var mouse = Mouse.current;
             if (mouse == null || cam == null) return;
@@ -125,19 +156,54 @@ namespace LoadBearing
                 held.transform.position = Vector3.Lerp(held.transform.position, target, k);
             }
 
+            if (folderHold)
+            {
+                if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != pickFrame)
+                {
+                    bool canStamp = folder.Current != null && !folder.Decided && !folder.Leaving;
+                    if (canStamp && OverForm(ray)) StartCoroutine(StampRoutine(held, folder.FormStampWorld, true));
+                    else DropInFolder(); // formun dışına tıklandı: bırak
+                }
+                return;
+            }
+
             if (!CursorController.IsAiming) return; // fare serbest kaldıysa (Esc) önce tekrar kilitlensin
             if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != pickFrame && Time.frameCount != CursorController.LockClickFrame)
             {
                 bool onFolder = interactor != null && folderInteractable != null && interactor.Hovered == folderInteractable;
-                if (onFolder && folder.Current != null && !folder.Decided) StartCoroutine(StampRoutine(held));
+                if (onFolder && folder.Current != null && !folder.Decided) StartCoroutine(StampRoutine(held, folder.StampAreaWorld, false));
                 else fc.SetHoldingStamp(false); // boş yere tıklandı: bırak
             }
         }
 
-        IEnumerator StampRoutine(StampTool s)
+        /// İmleç açık dosyanın formunun üstünde mi
+        bool OverForm(Ray ray)
+        {
+            var form = folder != null ? folder.FormRect : null;
+            if (form == null || !form.gameObject.activeInHierarchy) return false;
+            var p = new Plane(Vector3.up, form.position);
+            if (!p.Raycast(ray, out float d)) return false;
+            Vector2 local = form.InverseTransformPoint(ray.GetPoint(d));
+            return form.rect.Contains(local);
+        }
+
+        void DropInFolder()
+        {
+            inFolder = false;
+            ReturnHeld();
+        }
+
+        /// Sağ tık: açık dosyadayken mühür elindeyse sadece mührü bırak (dosyadan çıkma)
+        public bool TryDropInFocus()
+        {
+            if (held == null || !inFolder || animating) return false;
+            DropInFolder();
+            return true;
+        }
+
+        IEnumerator StampRoutine(StampTool s, Vector3 contact, bool fromFolder)
         {
             animating = true;
-            Vector3 contact = folder.StampAreaWorld;
             Vector3 above = contact + Vector3.up * 0.05f;
 
             yield return Move(s.transform, s.transform.position, above, pressTime);
@@ -149,7 +215,8 @@ namespace LoadBearing
             yield return Move(s.transform, contact, above, pressTime);
 
             animating = false;
-            FocusController.Instance.SetHoldingStamp(false); // -> OnFocusChanged -> ReturnHeld
+            if (fromFolder) DropInFolder();
+            else FocusController.Instance.SetHoldingStamp(false); // -> OnFocusChanged -> ReturnHeld
         }
 
         void ReturnHeld()

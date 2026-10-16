@@ -27,6 +27,20 @@ namespace LoadBearing
         public Vector3 slideFromOffset = new Vector3(0f, 0.06f, 0.45f); // gişe tarafından
         public float slideTime = 0.45f;
 
+        [Header("Tasarım modelleri (boşsa greybox davranışı: form her zaman görünür)")]
+        [Tooltip("Masada görünen kapalı dosya (SM_Folder)")]
+        public GameObject closedModel;
+        [Tooltip("Yakın bakışta görünen açık dosya (SM_Folder_Open)")]
+        public GameObject openModel;
+        [Tooltip("Açık dosyanın sayfasındaki başvuru formu (sadece açıkken görünür)")]
+        public GameObject formRoot;
+        [Tooltip("Kapak üstündeki mühür izi (T_StampMark görselleri)")]
+        public Image coverStamp;
+        public Sprite approveSprite;
+        public Sprite rejectSprite;
+
+        public bool IsOpen { get; private set; }
+
         [Header("Mühür izi (yoksa çalışınca kendisi oluşturur)")]
         public RectTransform stampArea;
         public GameObject stampMark;
@@ -40,10 +54,58 @@ namespace LoadBearing
         /// Müşteri dosyasını geri alıyor (artık mühür basılamaz)
         public bool Leaving { get; private set; }
 
-        /// Mührün değeceği nokta: KARAR kutusunun ortası
-        public Vector3 StampAreaWorld => stampArea != null
-            ? stampArea.TransformPoint(stampArea.rect.center)
-            : transform.position + Vector3.up * 0.016f;
+        /// Mührün değeceği nokta: kapak varsa kapağın ortası, yoksa formdaki KARAR kutusu
+        public Vector3 StampAreaWorld => coverStamp != null
+            ? coverStamp.rectTransform.position
+            : stampArea != null
+                ? stampArea.TransformPoint(stampArea.rect.center)
+                : transform.position + Vector3.up * 0.016f;
+
+        /// Açık dosyadaki formun KARAR kutusunun ortası (yakın bakışta mühür buraya basılır)
+        public Vector3 FormStampWorld => stampArea != null ? stampArea.TransformPoint(stampArea.rect.center) : StampAreaWorld;
+
+        /// Başvuru formunun RectTransform'u
+        public RectTransform FormRect => formRoot != null ? formRoot.transform as RectTransform
+                                        : (content != null ? content.transform.Find("Form") as RectTransform : null);
+
+        /// Yakın bakış: tam tepeden, form sayfası ve iki mühür birlikte görünsün
+        void Start()
+        {
+            if (interactable == null || interactable.focusPoint == null) return;
+            var form = FormRect;
+            if (form == null) return;
+
+            var corners = new Vector3[4];
+            form.GetWorldCorners(corners);
+            var b = new Bounds(corners[0], Vector3.zero);
+            foreach (var c in corners) b.Encapsulate(c);
+            var sc = StampController.Instance;
+            if (sc != null)
+            {
+                foreach (var st in new[] { sc.approveStamp, sc.rejectStamp })
+                    if (st != null) { b.Encapsulate(st.HomePos + new Vector3(0.05f, 0f, 0.05f)); b.Encapsulate(st.HomePos - new Vector3(0.05f, 0f, 0.05f)); }
+            }
+            float h = Mathf.Max(b.size.z, b.size.x / 1.7f) * 0.5f / Mathf.Tan(35f * Mathf.Deg2Rad) * 1.08f;
+            interactable.focusPoint.position = new Vector3(b.center.x, form.position.y + Mathf.Max(0.2f, h), b.center.z);
+            var up = form.up; up.y = 0f; // formun üst kenarı ekranın üstüne gelsin
+            interactable.focusPoint.rotation = Quaternion.LookRotation(Vector3.down, up.sqrMagnitude > 1e-4f ? up.normalized : Vector3.forward);
+        }
+
+        /// Yakın bakışta açık, masada kapalı dosya
+        public void SetOpen(bool open)
+        {
+            IsOpen = open;
+            if (closedModel == null || openModel == null) return; // greybox: değişiklik yok
+            closedModel.SetActive(!open);
+            openModel.SetActive(open);
+            if (formRoot != null) formRoot.SetActive(open);
+        }
+
+        void OnFocusTransition(FocusState from, FocusState to)
+        {
+            if (to == FocusState.Folder) SetOpen(true);
+            else if (from == FocusState.Folder) SetOpen(false);
+        }
 
         void Awake()
         {
@@ -89,17 +151,29 @@ namespace LoadBearing
         public void MarkDecided(bool approved)
         {
             Decided = true;
-            if (stampMark == null) return;
+            if (stampMark == null) { ShowCoverStamp(approved); return; }
             var ink = approved ? approveInk : rejectInk;
             stampText.text = approved ? "ONAYLANDI" : "REDDEDİLDİ";
             foreach (var g in stampMark.GetComponentsInChildren<Graphic>(true)) g.color = ink;
             stampMark.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-9f, 9f));
             stampMark.SetActive(true);
+            ShowCoverStamp(approved);
+        }
+
+        void ShowCoverStamp(bool approved)
+        {
+            if (coverStamp == null) return;
+            var sp = approved ? approveSprite : rejectSprite;
+            if (sp != null) { coverStamp.sprite = sp; coverStamp.color = Color.white; }
+            else coverStamp.color = approved ? approveInk : rejectInk;
+            coverStamp.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-10f, 10f));
+            coverStamp.gameObject.SetActive(true);
         }
 
         void OnEnable()
         {
             GameEvents.CustomerArrived += Show;
+            GameEvents.FocusTransitionStarted += OnFocusTransition;
             GameEvents.CustomerLeaving += OnCustomerLeaving;
             GameEvents.CustomerLeft += OnCustomerLeft;
             GameEvents.StateChanged += OnStateChanged;
@@ -108,6 +182,7 @@ namespace LoadBearing
         void OnDisable()
         {
             GameEvents.CustomerArrived -= Show;
+            GameEvents.FocusTransitionStarted -= OnFocusTransition;
             GameEvents.CustomerLeaving -= OnCustomerLeaving;
             GameEvents.CustomerLeft -= OnCustomerLeft;
             GameEvents.StateChanged -= OnStateChanged;
@@ -153,6 +228,8 @@ namespace LoadBearing
             Decided = false;
             Leaving = false;
             if (stampMark != null) stampMark.SetActive(false);
+            if (coverStamp != null) coverStamp.gameObject.SetActive(false);
+            SetOpen(false);
             Fill(c);
 
             // Bu müşteriye bu oyunda zaten karar verildiyse mühür izi dosyada kalır
@@ -179,6 +256,8 @@ namespace LoadBearing
             Decided = false;
             Leaving = false;
             if (stampMark != null) stampMark.SetActive(false);
+            if (coverStamp != null) coverStamp.gameObject.SetActive(false);
+            SetOpen(false);
             StopAllCoroutines();
             if (content != null) { content.SetActive(false); content.transform.localPosition = Vector3.zero; }
             if (interactable != null) interactable.enabled = false;

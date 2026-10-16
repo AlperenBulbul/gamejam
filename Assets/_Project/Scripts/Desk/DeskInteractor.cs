@@ -73,7 +73,12 @@ namespace LoadBearing
 
             bool back = mouse.rightButton.wasPressedThisFrame ||
                         (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame);
-            if (back && fc != null) fc.Back();
+            if (back && fc != null)
+            {
+                // Açık dosyada mühür elindeyse sağ tık önce mührü bırakır
+                var sc = StampController.Instance;
+                if (sc == null || !sc.TryDropInFocus()) fc.Back();
+            }
         }
     }
 }

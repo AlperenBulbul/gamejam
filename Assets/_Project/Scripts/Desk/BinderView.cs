@@ -68,7 +68,28 @@ namespace LoadBearing
             GameEvents.FocusTransitionStarted -= OnFocusTransition;
         }
 
-        void Start() => Rebuild(CurrentDay());
+        void Start()
+        {
+            Rebuild(CurrentDay());
+
+            // Yakın bakış: sayfanın tam tepesinden, sayfa ekranla hizalı (çapraz bakış sayfayı yamuk gösteriyordu)
+            var it = GetComponent<Interactable>();
+            var page = pageRoot != null ? pageRoot.parent as RectTransform : null;
+            if (it != null && it.focusPoint != null && page != null)
+            {
+                Vector3 center = page.TransformPoint(page.rect.center);
+                float dist = Mathf.Max(0.2f, Vector3.Distance(it.focusPoint.position, center));
+                it.focusPoint.position = center + Vector3.up * dist;
+                it.focusPoint.rotation = Quaternion.LookRotation(Vector3.down, FlatUp(page));
+            }
+        }
+
+        /// Sayfanın üst kenarı yönü (yatay). Kamera bununla hizalanır ki sayfa düz görünsün.
+        static Vector3 FlatUp(Transform page)
+        {
+            var u = page.up; u.y = 0f;
+            return u.sqrMagnitude > 1e-4f ? u.normalized : Vector3.forward;
+        }
 
         static int CurrentDay() => GameManager.Instance != null && GameManager.Instance.Run != null ? GameManager.Instance.Run.day : 1;
 

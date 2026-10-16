@@ -25,6 +25,18 @@ namespace LoadBearing
         }
 
         void Start() => Refresh();
+
+        string lastKey;
+
+        // Mühür alınıp bırakılınca da güncellensin (olay yok, ucuz kontrol)
+        void Update()
+        {
+            var gm = GameManager.Instance;
+            var fc = FocusController.Instance;
+            var sc = StampController.Instance;
+            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}";
+            if (key != lastKey) { lastKey = key; Refresh(); }
+        }
         void OnStateChanged(GameState _) => Refresh();
         void OnFocusChanged(FocusState _) => Refresh();
 
@@ -36,17 +48,20 @@ namespace LoadBearing
             if (!show) return;
 
             var focus = FocusController.Instance != null ? FocusController.Instance.State : FocusState.Desk;
-            text.text = Build(Hints(gm.State, focus));
+            bool holding = StampController.Instance != null && StampController.Instance.IsHolding;
+            text.text = Build(Hints(gm.State, focus, holding));
         }
 
-        static (string key, string action)[] Hints(GameState state, FocusState focus)
+        static (string key, string action)[] Hints(GameState state, FocusState focus, bool holding)
         {
             switch (focus)
             {
                 case FocusState.Folder:
-                    return new[] { ("Sağ tık / Esc", "Geri") };
+                    return holding
+                        ? new[] { ("Sol tık form", "Mühür bas"), ("Sağ tık", "Mührü bırak") }
+                        : new[] { ("Sol tık mühür", "Mührü al"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Map:
-                    return new[] { ("Tekerlek", "Yakınlaştır"), ("Sağ tık / Esc", "Geri") };
+                    return new[] { ("Tekerlek", "Yakınlaştır"), ("Boşluk", "Asetat aç / kapat"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Binder:
                     return new[] { ("Tekerlek / Oklar", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Monitor:
