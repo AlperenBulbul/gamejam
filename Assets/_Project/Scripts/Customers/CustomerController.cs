@@ -73,7 +73,7 @@ namespace LoadBearing
             // Gişeye yürü
             Current = Phase.WalkIn;
             yield return Walk(doorPos, spotPos);
-            yield return Turn(Quaternion.LookRotation(Vector3.back), 0.25f); // masaya dön
+            yield return Turn(Quaternion.LookRotation(FacePlayer()), 0.25f); // masaya (oyuncuya) dön
 
             // Dosyayı bırak, sabır işlemeye başlar
             Current = Phase.Waiting;
@@ -218,6 +218,12 @@ namespace LoadBearing
         // ------------------------------------------------------------------ hareket
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude < 1e-6f ? Vector3.forward : v; }
+
+        Vector3 FacePlayer()
+        {
+            var cam = Camera.main;
+            return cam != null ? Flat(cam.transform.position - transform.position) : Vector3.back;
+        }
 
         IEnumerator Walk(Vector3 from, Vector3 to)
         {
