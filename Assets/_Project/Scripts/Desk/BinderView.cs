@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace LoadBearing
 {
@@ -11,6 +12,8 @@ namespace LoadBearing
     /// - Gün başında (DayIntro) o güne kadarki tüm RuleData sayfalarını toplar; o gün eklenenlere YENİ etiketi
     ///   koyar, klasörü ilk yeni sayfada açar ve oyuncu klasörü açana kadar etrafında beyaz çerçeve parlar.
     /// - Sayfa çevirme sadece klasöre yakından bakarken: tekerlek ya da sol/sağ ok.
+    /// - Tasarım modeli bağlıysa (menü 19): masada kapalı SM_RuleBinder, yakın bakışta açık SM_RuleBinder_Open;
+    ///   2. günden itibaren kapalı klasörde turuncu YENİ sekmesi görünür.
     public class BinderView : MonoBehaviour
     {
         [Header("Sayfa")]
@@ -26,6 +29,14 @@ namespace LoadBearing
         public Transform coverHinge;
         public float openAngle = 178f;
         public float coverTime = 0.35f;
+
+        [Header("Tasarım modeli (menü 19)")]
+        public GameObject closedModel;
+        public GameObject openModel;
+        [Tooltip("Kapalı klasördeki turuncu YENİ sekmesi (2. günden itibaren)")]
+        public GameObject newTab;
+        [Tooltip("Yakın bakışta sayfanın etrafında kalan pay (1 = sayfa ekranı tam doldurur)")]
+        public float focusMargin = 1.2f;
 
         [Header("Yeni kural uyarısı (beyaz çerçeve parıltısı)")]
         public GameObject alertFrame;
@@ -54,6 +65,25 @@ namespace LoadBearing
         {
             alertRenderers = alertFrame != null ? alertFrame.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
             alertMpb = new MaterialPropertyBlock();
+            EnsureUnderPage();
+        }
+
+        /// Sayfa çevrilirken arkada modelin kendi (farklı renkli) sayfası görünmesin:
+        /// sayfanın arkasına aynı renkte sabit, boş bir kâğıt koy.
+        void EnsureUnderPage()
+        {
+            var page = pageRoot != null ? pageRoot.parent as RectTransform : null;
+            if (page == null || page.Find("UnderPage") != null) return;
+            var go = new GameObject("UnderPage", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(page, false);
+            rt.SetAsFirstSibling();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            var src = pageRoot.GetComponent<Image>();
+            img.color = src != null ? src.color : new Color(0.97f, 0.96f, 0.92f);
+            img.raycastTarget = false;
         }
 
         void OnEnable()
@@ -79,6 +109,16 @@ namespace LoadBearing
             {
                 Vector3 center = page.TransformPoint(page.rect.center);
                 float dist = Mathf.Max(0.2f, Vector3.Distance(it.focusPoint.position, center));
+                if (openModel != null)
+                {
+                    // Sayfanın tamamı ekrana sığsın
+                    var cam = Camera.main;
+                    float fov = cam != null ? cam.fieldOfView : 60f;
+                    float aspect = cam != null ? cam.aspect : 16f / 9f;
+                    float h = page.rect.height * page.lossyScale.y, w = page.rect.width * page.lossyScale.x;
+                    float half = Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+                    dist = Mathf.Max(h, w / aspect) * 0.5f / half * focusMargin;
+                }
                 it.focusPoint.position = center + Vector3.up * dist;
                 it.focusPoint.rotation = Quaternion.LookRotation(Vector3.down, FlatUp(page));
             }
@@ -102,13 +142,23 @@ namespace LoadBearing
         {
             if (to == FocusState.Binder)
             {
+                SetOpen(true);
                 SetCover(true);
                 SetAlert(false); // oyuncu yeni kuralları gördü
             }
             else if (from == FocusState.Binder)
             {
+                SetOpen(false);
                 SetCover(false);
             }
+        }
+
+        /// Tasarım modeli: açık / kapalı klasör
+        void SetOpen(bool open)
+        {
+            if (openModel == null || closedModel == null) return;
+            openModel.SetActive(open);
+            closedModel.SetActive(!open);
         }
 
         public void Rebuild(int day)
@@ -140,6 +190,8 @@ namespace LoadBearing
             flipping = false;
             pageRoot.localScale = Vector3.one;
             SetCoverImmediate(false);
+            SetOpen(false);
+            if (newTab != null) newTab.SetActive(day >= 2);
             SetAlert(newToday.Count > 0);
             ShowPage();
         }
