@@ -40,14 +40,17 @@ namespace LoadBearing
             var fc = FocusController.Instance;
             var focus = fc != null ? fc.State : FocusState.Desk;
             bool transitioning = fc != null && fc.IsTransitioning;
-            bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            bool deskView = focus == FocusState.Desk || focus == FocusState.HoldingStamp;
+            // Masa görünümünde sadece crosshair ile (fare kilitliyken) etkileşim olur
+            bool canPoint = !deskView || CursorController.IsAiming;
+            bool overUI = !CursorController.IsAiming && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
             Interactable target = null;
             HasHit = false;
 
-            if (!transitioning && !overUI)
+            if (!transitioning && !overUI && canPoint)
             {
-                Ray ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+                Ray ray = CursorController.PointerRay(cam); // nişan alınıyorsa ekran ortası, değilse imleç
                 if (Physics.Raycast(ray, out var hit, maxDistance, mask, QueryTriggerInteraction.Collide))
                 {
                     LastHit = hit;
@@ -64,7 +67,8 @@ namespace LoadBearing
                 if (hovered != null) hovered.SetHighlight(true);
             }
 
-            if (hovered != null && mouse.leftButton.wasPressedThisFrame)
+            bool click = mouse.leftButton.wasPressedThisFrame && Time.frameCount != CursorController.LockClickFrame;
+            if (hovered != null && click)
                 hovered.Click();
 
             bool back = mouse.rightButton.wasPressedThisFrame ||

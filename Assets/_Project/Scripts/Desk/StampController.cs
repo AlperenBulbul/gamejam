@@ -116,7 +116,7 @@ namespace LoadBearing
             if (mouse == null || cam == null) return;
 
             // Mühür imlecin masadaki noktasının üstünde süzülür
-            var ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+            var ray = CursorController.PointerRay(cam); // crosshair'in gösterdiği nokta
             var plane = new Plane(Vector3.up, new Vector3(0f, deskY, 0f));
             if (plane.Raycast(ray, out float d))
             {
@@ -125,7 +125,8 @@ namespace LoadBearing
                 held.transform.position = Vector3.Lerp(held.transform.position, target, k);
             }
 
-            if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != pickFrame)
+            if (!CursorController.IsAiming) return; // fare serbest kaldıysa (Esc) önce tekrar kilitlensin
+            if (mouse.leftButton.wasPressedThisFrame && Time.frameCount != pickFrame && Time.frameCount != CursorController.LockClickFrame)
             {
                 bool onFolder = interactor != null && folderInteractable != null && interactor.Hovered == folderInteractable;
                 if (onFolder && folder.Current != null && !folder.Decided) StartCoroutine(StampRoutine(held));

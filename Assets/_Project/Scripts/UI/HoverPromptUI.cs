@@ -42,7 +42,8 @@ namespace LoadBearing
             if (label.text != text) label.text = text;
 
             // Ekran pikselini canvas koordinatına çevir (Screen Space Overlay -> kamera null)
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, mouse.position.ReadValue(), null, out var local);
+            // Nişan alınıyorsa crosshair'in (ekran ortası) yanında, değilse imlecin yanında
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, CursorController.PointerScreen(), null, out var local);
             var pos = local + offset;
 
             // Ekranın sağına / altına taşmasın

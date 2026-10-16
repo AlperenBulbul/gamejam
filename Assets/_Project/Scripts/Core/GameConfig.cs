@@ -63,7 +63,10 @@ namespace LoadBearing
 
         [Header("Kamera")]
         public float lookYaw = 60f;
+        [Tooltip("Yukarı bakış sınırı (derece)")]
         public float lookPitch = 25f;
+        [Tooltip("Aşağı bakış sınırı (derece) — mühürler ve masanın ön kenarı için daha geniş")]
+        public float lookPitchDown = 45f;
         [Range(0.05f, 0.45f)] public float lookEdge = 0.2f;
         public float focusTime = 0.35f;
 

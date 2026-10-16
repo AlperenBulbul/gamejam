@@ -6,7 +6,7 @@ namespace LoadBearing
     /// Tek bir müşteri: kapıdan gişeye yürür, dosyasını bırakır, karar bekler, tepki verir, çıkar.
     /// WalkIn -> Waiting (sabır azalır) -> Reacting -> WalkOut -> (yok olur)
     /// Sabır bitince (Gone) dosyasını alıp sinirli çıkar: +1 ceza (GDD bölüm 3).
-    /// Konuşma balonu / ses Adım 9'da; şimdilik replikler Console'a yazılır.
+    /// Replikler SpeechSystem ile altyazı + mırıltı sesi olarak çıkar.
     public class CustomerController : MonoBehaviour
     {
         public enum Phase { WalkIn, Waiting, Reacting, WalkOut, Gone }
@@ -211,7 +211,7 @@ namespace LoadBearing
         void Say(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
-            if (Stage == PatienceStage.Rage) line = line.ToUpper(new System.Globalization.CultureInfo("tr-TR"));
+            if (SpeechSystem.Instance != null) SpeechSystem.Instance.Say(Data, line, Stage); // altyazı + mırıltı
             Debug.Log($"[Müşteri] {Data.displayName} ({Stage}): {line}");
         }
 

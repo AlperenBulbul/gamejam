@@ -63,6 +63,8 @@ namespace LoadBearing.EditorTools
             var keyHints = BuildKeyHints(ui.transform);
             var howTo = BuildHowToPlay(ui.transform);
             var menu = BuildMainMenu(ui.transform, howTo);
+            SpeechSetup.BuildSubtitle(ui.transform);     // altyazı (menü 10 ile aynı)
+            CursorSetup.BuildCrosshair(ui.transform);    // crosshair (menü 11 ile aynı)
             var hover = BuildHoverPrompt(ui.transform); // en üstte çizilsin diye en son
             EditorUtility.SetDirty(hover);
             howTo.mainMenu = menu;

@@ -54,7 +54,7 @@ namespace LoadBearing
                 case FocusState.HoldingStamp:
                     return new[] { ("Sol tık dosya", "Mühür bas"), ("Sağ tık", "Mührü bırak") };
                 default: // Desk
-                    return new[] { ("Sol tık", "Seç / incele"), ("Ekran kenarı", "Etrafa bak"), ("Mühür + dosya", "Karar ver") };
+                    return new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Mühür + dosya", "Karar ver") };
             }
         }
 
