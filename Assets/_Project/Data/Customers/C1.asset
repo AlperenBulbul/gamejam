@@ -31,6 +31,7 @@ MonoBehaviour:
   voicePitch: 0.85
   body: 0
   variantMaterial: {fileID: 0}
+  characterPrefab: {fileID: 2669181761204645438, guid: 79afa1a301d0ae243b314b71972799d8, type: 3}
   greeting: "Merhaba evlad\u0131m. Torunlar gelince s\u0131\u011Fal\u0131m diye k\xFC\xE7\xFCk bir ev."
   approveLine: "Allah raz\u0131 olsun evlad\u0131m!"
   rejectLine: "Ama... b\xFCt\xFCn birikimimizi koyduk."

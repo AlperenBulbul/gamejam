@@ -32,6 +32,8 @@ namespace LoadBearing
         [Range(0.5f, 1.6f)] public float voicePitch = 1f;
         public BodyType body = BodyType.Male;
         public Material variantMaterial;
+        [Tooltip("Bu müşterinin karakter prefabı. Boşsa CustomerQueue cinsiyete göre varsayılanı kullanır.")]
+        public GameObject characterPrefab;
 
         [Header("Replikler")]
         [TextArea] public string greeting;

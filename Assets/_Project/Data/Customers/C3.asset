@@ -31,6 +31,7 @@ MonoBehaviour:
   voicePitch: 1.25
   body: 1
   variantMaterial: {fileID: 0}
+  characterPrefab: {fileID: 8794553093933605519, guid: 378b1585f98b1c54e9b4fe5e602cee28, type: 3}
   greeting: Acelem var. Damga, imza, bitti.
   approveLine: "Harika. Zaman parad\u0131r."
   rejectLine: Ciddi misin. Bu arsaya ne kadar para verdim biliyor musun.

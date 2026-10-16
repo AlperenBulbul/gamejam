@@ -15,8 +15,10 @@ namespace LoadBearing
         public Transform customerSpot;
 
         [Header("Görsel")]
-        [Tooltip("Boşsa basit kapsül gövde oluşturulur. Karakter modelleri gelince buraya prefab konur.")]
+        [Tooltip("Varsayılan (erkek) müşteri prefabı. Boşsa basit kapsül gövde oluşturulur.")]
         public GameObject customerPrefab;
+        [Tooltip("Varsayılan kadın müşteri prefabı (boşsa customerPrefab)")]
+        public GameObject femalePrefab;
         public Material greyboxMaterial;
         [Tooltip("Tüm müşterilerin ortak sabır replikleri (Data/Dialogue/CommonDialogue)")]
         public DialogueSet dialogue;
@@ -101,9 +103,12 @@ namespace LoadBearing
         {
             GameObject go;
             Transform visual;
-            if (customerPrefab != null)
+            // Müşteriye özel karakter > cinsiyete göre varsayılan > kapsül
+            var prefab = data.characterPrefab != null ? data.characterPrefab
+                       : (data.body == BodyType.Female && femalePrefab != null ? femalePrefab : customerPrefab);
+            if (prefab != null)
             {
-                go = Instantiate(customerPrefab);
+                go = Instantiate(prefab);
                 visual = go.transform.childCount > 0 ? go.transform.GetChild(0) : go.transform;
             }
             else

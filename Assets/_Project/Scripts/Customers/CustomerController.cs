@@ -7,7 +7,9 @@ namespace LoadBearing
     /// WalkIn -> Waiting (sabır azalır) -> Reacting -> WalkOut -> (yok olur)
     /// Sabır bitince (Gone) dosyasını alıp sinirli çıkar: +1 ceza (GDD bölüm 3).
     /// Replikler SpeechSystem ile altyazı + mırıltı sesi olarak çıkar.
-    /// Karakter modeli varsa (Animator): konuşurken "Talking", sinirliyken "Angry", diğer zamanlar "Idle" durumu oynar.
+    /// Karakter modeli varsa (Animator) şu durumlardan elinde olanları oynar (yoksa bir sonrakine düşer):
+    ///  yürürken Walk > Idle · beklerken Idle / Impatient / Angry / Rage (sabır aşamasına göre), konuşurken Talking
+    ///  onaylanınca Happy > Talking · reddedilince Sad > Angry
     public class CustomerController : MonoBehaviour
     {
         public enum Phase { WalkIn, Waiting, Reacting, WalkOut, Gone }
@@ -38,9 +40,9 @@ namespace LoadBearing
         public Animator animator;
         public float animFade = 0.25f;
 
-        const string AnimIdle = "Idle", AnimTalk = "Talking", AnimAngry = "Angry";
         string animState;
         float talkUntil;
+        bool hasWalk, richAnim, hasReact;
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static Transform glass;
@@ -61,6 +63,9 @@ namespace LoadBearing
             transform.position = door;
             mpb = new MaterialPropertyBlock();
             if (animator == null) animator = GetComponentInChildren<Animator>();
+            hasWalk = animator != null && animator.HasState(0, Animator.StringToHash("Walk"));
+            richAnim = animator != null && animator.HasState(0, Animator.StringToHash("Impatient"));
+            hasReact = animator != null && animator.HasState(0, Animator.StringToHash("Happy"));
             if (glass == null)
             {
                 var g = GameObject.Find("Counter/Glass");
@@ -75,25 +80,45 @@ namespace LoadBearing
         void UpdateAnimation()
         {
             if (animator == null || !animator.isActiveAndEnabled) return;
-            string want;
+            bool talking = Time.time < talkUntil;
             switch (Current)
             {
+                case Phase.WalkIn:
+                case Phase.WalkOut:
+                    if (walking) Play("Walk", "Idle"); else Play("Idle");
+                    break;
                 case Phase.Waiting:
-                    if (Stage >= PatienceStage.Angry) want = AnimAngry;
-                    else want = Time.time < talkUntil ? AnimTalk : AnimIdle;
+                    switch (Stage)
+                    {
+                        case PatienceStage.Calm: if (talking) Play("Talking", "Idle"); else Play("Idle"); break;
+                        case PatienceStage.Impatient: if (talking) Play("Talking", "Impatient", "Idle"); else Play("Impatient", "Idle"); break;
+                        case PatienceStage.Angry: Play("Angry", "Impatient", "Idle"); break;
+                        default: Play("Rage", "Angry", "Idle"); break;
+                    }
                     break;
                 case Phase.Reacting:
-                    want = approved ? AnimTalk : AnimAngry;
+                    if (approved) Play("Happy", "Talking", "Idle"); else Play("Sad", "Angry", "Idle");
                     break;
                 default:
-                    want = AnimIdle;
+                    Play("Idle");
                     break;
             }
-            if (want == animState) return;
-            int hash = Animator.StringToHash(want);
-            if (!animator.HasState(0, hash)) return;
-            animator.CrossFadeInFixedTime(hash, animState == null ? 0f : animFade, 0);
-            animState = want;
+        }
+
+        bool walking;
+
+        /// Elinde olan ilk animasyon durumuna yumuşak geçiş
+        void Play(params string[] names)
+        {
+            foreach (var n in names)
+            {
+                if (n == animState) return;
+                int hash = Animator.StringToHash(n);
+                if (!animator.HasState(0, hash)) continue;
+                animator.CrossFadeInFixedTime(hash, animState == null ? 0f : animFade, 0);
+                animState = n;
+                return;
+            }
         }
 
         void OnEnable() => GameEvents.Stamped += OnStamped;
@@ -216,6 +241,12 @@ namespace LoadBearing
                     break;
             }
 
+            if (richAnim)
+            {
+                // Karakterin kendi bekleme animasyonları var: sadece cama atılma hareketi kalsın
+                rot = Vector3.zero;
+                pos = new Vector3(0f, 0f, Stage == PatienceStage.Rage ? pos.z : 0f);
+            }
             visual.localPosition = pos;
             visual.localRotation = Quaternion.Euler(rot);
             Tint(Color.Lerp(baseColor, rageColor, red));
@@ -271,13 +302,16 @@ namespace LoadBearing
             var dir = Flat(to - from);
             transform.rotation = Quaternion.LookRotation(dir);
             float steps = Mathf.Max(2f, Vector3.Distance(from, to) / 0.35f);
+            walking = true;
             for (float t = 0f; t < walkTime; t += Time.deltaTime)
             {
-                float k = Mathf.SmoothStep(0f, 1f, t / walkTime);
+                // Yürüme animasyonu varsa sabit hızla yürü (ayak kaymasın), yoksa yumuşak başla-dur + zıplama
+                float k = hasWalk ? t / walkTime : Mathf.SmoothStep(0f, 1f, t / walkTime);
                 transform.position = Vector3.Lerp(from, to, k);
-                if (visual != null) visual.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(k * steps * Mathf.PI)) * 0.035f, 0f);
+                if (visual != null && !hasWalk) visual.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(k * steps * Mathf.PI)) * 0.035f, 0f);
                 yield return null;
             }
+            walking = false;
             transform.position = to;
             if (visual != null) visual.localPosition = Vector3.zero;
         }
@@ -295,6 +329,7 @@ namespace LoadBearing
 
         IEnumerator Hop()
         {
+            if (hasReact) { yield return new WaitForSeconds(Mathf.Max(reactTime, 2.2f)); yield break; } // sevinme animasyonu var
             for (float t = 0f; t < reactTime; t += Time.deltaTime)
             {
                 float k = t / reactTime;
@@ -306,6 +341,7 @@ namespace LoadBearing
 
         IEnumerator Shake()
         {
+            if (hasReact) { yield return new WaitForSeconds(Mathf.Max(reactTime, 2.2f)); yield break; } // üzülme animasyonu var
             for (float t = 0f; t < reactTime; t += Time.deltaTime)
             {
                 float k = t / reactTime;
