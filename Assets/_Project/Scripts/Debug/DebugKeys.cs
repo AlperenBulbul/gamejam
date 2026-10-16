@@ -22,7 +22,8 @@ namespace LoadBearing
             if (kb == null || gm == null) return;
 
             if (kb.f1Key.wasPressedThisFrame && StampController.Instance != null) StampController.Instance.DebugAutoStamp();
-            // F2: hata başlat           -> D-11'de bağlanacak
+            var cm = ConstructionManager.Instance;
+            if (kb.f2Key.wasPressedThisFrame && cm != null) cm.DebugStartFault();
             if (kb.f3Key.wasPressedThisFrame) { gm.Run.balance += 1000; Debug.Log("[Debug] +1000 TL"); }
             if (kb.f4Key.wasPressedThisFrame && CustomerQueue.Instance != null) CustomerQueue.Instance.DebugSkipDay();
             // F5: depremi tetikle       -> D-18'de bağlanacak
@@ -31,7 +32,8 @@ namespace LoadBearing
                 CustomerController.FreezePatience = !CustomerController.FreezePatience;
                 Debug.Log($"[Debug] Sabır {(CustomerController.FreezePatience ? "DONDURULDU" : "normal")}");
             }
-            // F7: inşaatı 10x hızlandır -> D-11'de bağlanacak
+            if (kb.f7Key.wasPressedThisFrame && cm != null) cm.DebugToggleSpeed();
+            if (kb.f11Key.wasPressedThisFrame && cm != null) cm.DebugClick(kb.shiftKey.isPressed); // monitör gelene kadar
             if (kb.f8Key.wasPressedThisFrame) gm.DebugAdvance();          // akışı bir adım ilerlet
             if (kb.f9Key.wasPressedThisFrame) gm.DebugJumpToDay(2);
             if (kb.f10Key.wasPressedThisFrame) showOverlay = !showOverlay;
@@ -59,7 +61,10 @@ namespace LoadBearing
                 var d = r.decisions[r.decisions.Count - 1];
                 last = $"{d.customerId} {(d.approved ? "ONAY" : "RET")} ({(d.approved == d.valid ? "doğru" : "YANLIŞ")})";
             }
-            GUI.Box(new Rect(10, 10, 360, 225),
+            var cm = ConstructionManager.Instance;
+            string sites = cm != null ? cm.DebugSummary() : "-";
+            int siteLines = sites.Split('\n').Length;
+            GUI.Box(new Rect(10, 10, 380, 290 + siteLines * 15),
                 $"DURUM: {gm.State}   GÜN: {r.day}\n" +
                 $"ODAK: {focus}\n" +
                 $"Bakiye: {r.balance} TL\n" +
@@ -67,7 +72,9 @@ namespace LoadBearing
                 $"Rüşvet: {(r.anyBribe ? $"alındı ({r.ledger.bribe} TL)" : "yok")}{(r.bribeOnApproved != null && r.bribeOnApproved != "" ? $" · onaylandı: {r.bribeOnApproved}" : "")}   Kovulma bekliyor: {r.pendingFired}\n" +
                 $"Son karar: {last}   Bugün ücret: {r.ledger.fees} TL\n" +
                 $"Müşteri: {CustomerInfo()}\n" +
-                $"\nF1 doğru mühür · F4 günü bitir · F6 sabrı dondur\nF8 akış · F9 2. gün · F10 gizle");
+                $"Bugün: {r.ledger.stepsCompleted} adım · {r.ledger.fixes} düzeltme\n" +
+                $"ŞANTİYELER:\n{sites}\n" +
+                $"\nF1 doğru mühür · F4 günü bitir · F6 sabrı dondur\nF2 hata başlat · F7 inşaat x10 · F11 hatayı düzelt\nShift+F11 düzgün işçiye tıkla · F8 akış · F9 2. gün · F10 gizle");
         }
     }
 }
