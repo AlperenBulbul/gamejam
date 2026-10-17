@@ -3,13 +3,15 @@ using System.IO;
 using System.Linq;
 using TMPro;
 using UnityEditor;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace LoadBearing.EditorTools
 {
     /// "Load Bearing/22 - Tasarım revizelerini yükle (masa + harita)"  (önce menü 13, 14, 18, 21)
-    /// Tasarımcının OKU_BENI_Kurulum.md ve OKU_BENI_Harita_Revize.md notlarına göre:
+    /// Tasarımcının OKU_BENI_Kurulum.md, OKU_BENI_Harita_Revize.md ve OKU_BENI_Revize2.md notlarına göre
+    /// (Revize altındaki bütün paketler sırayla kopyalanır):
     ///  1. indirilenler/Assets/Revize/.../Assets/Art altındaki her şeyi Assets/Art'a kopyalar (aynı adlılar üzerine)
     ///  2. Menü 13'ü çalıştırır (yeni palet, sıra ekranı / yağmur / gökyüzü materyalleri, yeni FBX ayarları)
     ///  3. Sahne: yeni damgalar, sandalye, sıra ekranı (numara TMP ile), yeni duyuru panosu ve fiş makinesi,
@@ -153,6 +155,24 @@ namespace LoadBearing.EditorTools
                 log.Add("Kural 1 metni güncellendi (fay tehlike bölgesi)");
             }
 
+            // ---- Monitör: yatay model (16:9 ekran, kontroller tek sıra). Sahnedeki eski modelin yerine.
+            ReplaceMonitor(log);
+
+            // ---- Gazete: tıklayınca yakın bakış + "GÜNE BAŞLA" düğmesi (eskiden tıklayınca direkt başlıyordu)
+            var paper = GameObject.Find("Desk/Newspaper");
+            if (paper != null)
+            {
+                var pit = paper.GetComponent<Interactable>();
+                if (pit != null)
+                {
+                    for (int i = pit.onClick.GetPersistentEventCount() - 1; i >= 0; i--)
+                        if (pit.onClick.GetPersistentMethodName(i) == "BeginWorking") UnityEventTools.RemovePersistentListener(pit.onClick, i);
+                    EditorUtility.SetDirty(pit);
+                }
+                if (paper.GetComponent<NewspaperView>() == null) paper.AddComponent<NewspaperView>();
+                log.Add("Gazete: yakın bakış + GÜNE BAŞLA düğmesi");
+            }
+
             // ---- 4) Kamera uzak kesme + şantiye maketi daha uzağa
             var main = GameObject.FindWithTag("MainCamera");
             if (main != null) { var mc = main.GetComponent<Camera>(); if (mc != null) mc.farClipPlane = 1200f; }
@@ -162,7 +182,32 @@ namespace LoadBearing.EditorTools
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
-            Debug.Log("<color=lime>[Load Bearing]</color> Tasarım teslimi 2 yüklendi.\n - " + string.Join("\n - ", log));
+
+            // Monitör sistemi yeni modele göre yeniden kurulur (16:9 Render Texture, ekran, düğmeler, ışıklar)
+            MonitorSetup.Run();
+            // Masa düzeni (kural klasörü sağa ve biraz öne, dosya + mühürler öne)
+            DeskLayout.Run();
+
+            Debug.Log("<color=lime>[Load Bearing]</color> Tasarım revizeleri yüklendi.\n - " + string.Join("\n - ", log));
+        }
+
+        static void ReplaceMonitor(List<string> log)
+        {
+            var art = GameObject.Find("Desk/Monitor/Art");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{Props}/SM_Monitor.fbx");
+            if (art == null || prefab == null) { log.Add("ATLANDI: monitör"); return; }
+            var old = FindDeep(art.transform, "SM_Monitor");
+            Vector3 pos = old != null ? old.position : art.transform.position;
+            Quaternion rot = old != null ? old.rotation : art.transform.rotation;
+            bool firstTime = art.transform.Find("_Revize2") == null;
+            if (firstTime) pos += Vector3.left * 0.04f; // genişleyen kasa masanın sağ kenarından taşmasın (tasarım notu)
+            for (int i = art.transform.childCount - 1; i >= 0; i--)
+                if (art.transform.GetChild(i).name != "_Revize2") Object.DestroyImmediate(art.transform.GetChild(i).gameObject);
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            go.transform.SetParent(art.transform, false);
+            go.transform.SetPositionAndRotation(pos, rot);
+            if (firstTime) new GameObject("_Revize2").transform.SetParent(art.transform, false);
+            log.Add("Monitör yatay modelle değiştirildi");
         }
 
         // ------------------------------------------------------------------ dosyalar

@@ -25,7 +25,7 @@ namespace LoadBearing
 
         [Header("Yakın bakış kamerası")]
         [Tooltip("Ne kadar yüksekten bakılsın (1 = form + mühürler kadrajı tam doldurur)")]
-        public float focusHeightScale = 1.3f;
+        public float focusHeightScale = 1.5f;
         [Tooltip("Tam tepeden ne kadar eğik bakılsın (derece). 0 = tam tepeden")]
         [Range(0f, 45f)] public float focusTilt = 22f;
 
@@ -91,6 +91,12 @@ namespace LoadBearing
                 foreach (var st in new[] { sc.approveStamp, sc.rejectStamp })
                     if (st != null) { b.Encapsulate(st.HomePos + new Vector3(0.05f, 0f, 0.05f)); b.Encapsulate(st.HomePos - new Vector3(0.05f, 0f, 0.05f)); }
             }
+            // Kadraj formun ortasında kalsın (mühürler yana düşüyor diye kamera kaymasın); mühürler sığacak kadar geniş
+            var fb = new Bounds(corners[0], Vector3.zero);
+            foreach (var c in corners) fb.Encapsulate(c);
+            float hx = Mathf.Max(b.max.x - fb.center.x, fb.center.x - b.min.x);
+            float hz = Mathf.Max(b.max.z - fb.center.z, fb.center.z - b.min.z);
+            b = new Bounds(fb.center, new Vector3(hx * 2f, b.size.y, hz * 2f));
             float dist = Mathf.Max(0.2f, Mathf.Max(b.size.z, b.size.x / 1.7f) * 0.5f / Mathf.Tan(35f * Mathf.Deg2Rad) * 1.08f * focusHeightScale);
             var up = form.up; up.y = 0f; // formun üst kenarı ekranın üstüne gelsin
             up = up.sqrMagnitude > 1e-4f ? up.normalized : Vector3.forward;
@@ -104,10 +110,30 @@ namespace LoadBearing
         }
 
         /// Yakın bakışta açık, masada kapalı dosya
+        [Tooltip("Açık dosya masadan ne kadar yukarıda dursun (metre). Açılınca genişleyip haritanın üstüne taşıyor; içine girmesin diye.")]
+        public float openLift = 0.008f;
+
+        Vector3 openHome, formHome;
+        bool homesSaved;
+
         public void SetOpen(bool open)
         {
             IsOpen = open;
             if (closedModel == null || openModel == null) return; // greybox: değişiklik yok
+            if (!homesSaved)
+            {
+                openHome = openModel.transform.localPosition;
+                if (formRoot != null) formHome = formRoot.transform.localPosition;
+                homesSaved = true;
+            }
+            // Açık dosya haritanın üstünde dursun: model ve form birlikte biraz yukarı
+            var lift = openModel.transform.parent != null ? openModel.transform.parent.InverseTransformVector(Vector3.up * openLift) : Vector3.up * openLift;
+            openModel.transform.localPosition = openHome + (open ? lift : Vector3.zero);
+            if (formRoot != null)
+            {
+                var fl = formRoot.transform.parent != null ? formRoot.transform.parent.InverseTransformVector(Vector3.up * openLift) : Vector3.up * openLift;
+                formRoot.transform.localPosition = formHome + (open ? fl : Vector3.zero);
+            }
             closedModel.SetActive(!open);
             openModel.SetActive(open);
             if (formRoot != null) formRoot.SetActive(open);
@@ -121,6 +147,10 @@ namespace LoadBearing
 
         void Awake()
         {
+            // Formdaki "ADA / PARSEL" etiketi -> "ADA"
+            if (content != null)
+                foreach (var t in content.GetComponentsInChildren<TMP_Text>(true))
+                    if (t.text == "ADA / PARSEL") t.text = "ADA";
             EnsureStampMark();
             HideImmediate();
         }
@@ -281,7 +311,7 @@ namespace LoadBearing
 
             appNo.text = $"No: 2026/{c.id}";
             owner.text = c.displayName;
-            adaParsel.text = $"{c.ada} / {c.parsel}";
+            adaParsel.text = c.ada.ToString(); // parsel numarası oyunda kullanılmıyor
             area.text = $"{c.areaM2} m²";
             floors.text = c.floors.ToString();
             use.text = c.use;

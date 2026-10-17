@@ -4,7 +4,7 @@ namespace LoadBearing
     public enum GameState { MainMenu, DayIntro, Working, FinalShift, Receipt, Shop, DayEvent, Newspaper, Ending }
 
     /// Oyuncunun o an nereye baktığı
-    public enum FocusState { Desk, Folder, Map, Binder, Monitor, HoldingStamp }
+    public enum FocusState { Desk, Folder, Map, Binder, Monitor, HoldingStamp, Newspaper } // yeni durumlar SONA eklenir (sahnedeki sayılar kaymasın)
 
     /// Müşteri sabır aşamaları (GDD bölüm 3): Sakin, Sabırsız, Sinirli, Patlama, Gider
     public enum PatienceStage { Calm, Impatient, Angry, Rage, Gone }

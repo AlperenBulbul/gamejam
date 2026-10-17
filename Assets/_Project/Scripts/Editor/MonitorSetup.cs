@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace LoadBearing.EditorTools
 {
     /// "Load Bearing/21 - Güvenlik monitörünü kur"  (önce menü 14)
-    /// - RT_Monitor (1024 x 768) Render Texture
+    /// - RT_Monitor (1280 x 720, 16:9 — yatay monitörün ekranı) Render Texture
     /// - FeedWorld (x = 5000): ortografik izometrik FeedCamera -> RT_Monitor, SiteRoot, kendi ışığı,
     ///   kamera görüntüsü üstü yazılar (REC şeridi, KUSUR, saat, köşe çerçeveleri, tarama çizgileri, SİNYAL YOK)
     /// - Masadaki monitörün ekranı (SM_Monitor_Screen) bu dokuyu gösterir (Unlit, ışıktan etkilenmez)
@@ -19,6 +19,7 @@ namespace LoadBearing.EditorTools
         const string ScenePath = "Assets/_Project/Scenes/Office.unity";
         const string Dir = "Assets/_Project/Monitor";
         const string RtPath = Dir + "/RT_Monitor.renderTexture";
+        const int RtW = 1280, RtH = 720;
 
         static readonly Color Bg = new Color(0.20f, 0.24f, 0.27f);
         static readonly Color Amber = new Color(0.86f, 0.66f, 0.25f);
@@ -44,8 +45,15 @@ namespace LoadBearing.EditorTools
             var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(RtPath);
             if (rt == null)
             {
-                rt = new RenderTexture(1024, 768, 24) { name = "RT_Monitor", antiAliasing = 2, filterMode = FilterMode.Bilinear };
+                rt = new RenderTexture(RtW, RtH, 24) { name = "RT_Monitor", antiAliasing = 2, filterMode = FilterMode.Bilinear };
                 AssetDatabase.CreateAsset(rt, RtPath);
+            }
+            else if (rt.width != RtW || rt.height != RtH)
+            {
+                rt.Release();
+                rt.width = RtW;
+                rt.height = RtH;
+                EditorUtility.SetDirty(rt);
             }
 
             // ---- Materyaller
@@ -118,9 +126,25 @@ namespace LoadBearing.EditorTools
                     screen.sharedMaterials = mats;
                     if (screen.GetComponent<Collider>() == null) screen.gameObject.AddComponent<MeshCollider>();
                 }
+                // Greybox kutuların çarpışma kutuları tasarım modelinin önünü kapatmasın (düğmelere tıklanabilsin)
+                foreach (var n in new[] { "Body", "Stand", "Screen" })
+                {
+                    var g = monitor.transform.Find(n);
+                    if (g == null || (screen != null && g == screen.transform)) continue;
+                    foreach (var c in g.GetComponents<Collider>()) c.enabled = false;
+                }
+                // Kasa tıklanabilsin (masadan monitöre bakmak için)
+                var body = FindDeep(monitor.transform, "SM_Monitor");
+                if (body != null && body.GetComponent<MeshFilter>() != null && body.GetComponent<Collider>() == null)
+                    body.gameObject.AddComponent<MeshCollider>();
+
                 var view = monitor.GetComponent<MonitorView>();
                 if (view == null) view = monitor.AddComponent<MonitorView>();
                 view.screenRenderer = screen;
+                view.ledOff = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedOff.mat");
+                view.ledGreen = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedGreen.mat");
+                view.ledYellow = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedYellow.mat");
+                view.ledGrey = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedGrey.mat");
                 EditorUtility.SetDirty(view);
             }
 
@@ -147,7 +171,7 @@ namespace LoadBearing.EditorTools
             canvas.planeDistance = 1f;
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1024, 768);
+            scaler.referenceResolution = new Vector2(RtW, RtH);
             scaler.matchWidthOrHeight = 0.5f;
             var root = (RectTransform)go.transform;
 
@@ -158,7 +182,7 @@ namespace LoadBearing.EditorTools
             Stretch(lrt);
             var raw = lines.GetComponent<RawImage>();
             raw.texture = ScanlineTexture();
-            raw.uvRect = new Rect(0, 0, 1, 768f / 4f);
+            raw.uvRect = new Rect(0, 0, 1, RtH / 4f);
             raw.raycastTarget = false;
 
             // Üst şerit

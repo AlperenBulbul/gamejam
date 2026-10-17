@@ -71,7 +71,7 @@ namespace LoadBearing.EditorTools
             HLine(form, -42f, 0.9f);
 
             // Satırlar
-            string[] labels = { "Mal sahibi", "Ada / Parsel", "Arsa alanı", "İstenen kat", "Kullanım", "Mühendis kaşesi", "Zemin etüdü" };
+            string[] labels = { "Mal sahibi", "Ada", "Arsa alanı", "İstenen kat", "Kullanım", "Mühendis kaşesi", "Zemin etüdü" };
             var values = new TMP_Text[labels.Length];
             float y = -52f;
             for (int i = 0; i < labels.Length; i++)

@@ -77,11 +77,17 @@ namespace LoadBearing
                 case FocusState.Binder:
                     return new[] { ("Tekerlek / Oklar", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Monitor:
-                    return new[] { ("Sol tık", "İşçiyi düzelt"), ("A / D", "Kanal"), ("1-7", "Kanal seç"), ("Sağ tık / Esc", "Geri") };
+                    return new[] { ("Monitör < > / A D", "Kanal değiştir"), ("1-7", "Kanal seç"), ("Sağ tık / Esc", "Geri") };
+                case FocusState.Newspaper:
+                    return state == GameState.DayIntro
+                        ? new[] { ("Güne Başla / Enter", "Mesaiyi başlat"), ("Sağ tık / Esc", "Geri") }
+                        : new[] { ("Sağ tık / Esc", "Geri") };
                 case FocusState.HoldingStamp:
                     return new[] { ("Sol tık dosya", "Mühür bas"), ("Sağ tık", "Mührü bırak") };
                 default: // Desk
-                    return new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver") };
+                    return state == GameState.DayIntro
+                        ? new[] { ("Fare", "Etrafa bak"), ("Gazete", "Oku ve güne başla") }
+                        : new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver") };
             }
         }
 

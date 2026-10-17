@@ -277,7 +277,8 @@ namespace LoadBearing.EditorTools
             if (it == null) it = paper.AddComponent<Interactable>();
             for (int i = it.onClick.GetPersistentEventCount() - 1; i >= 0; i--)
                 UnityEventTools.RemovePersistentListener(it.onClick, i);
-            UnityEventTools.AddPersistentListener(it.onClick, gm.BeginWorking);
+            // Gazeteye tıklayınca yakın bakış açılır, "GÜNE BAŞLA" düğmesi mesaiyi başlatır (NewspaperView)
+            if (paper.GetComponent<NewspaperView>() == null) paper.AddComponent<NewspaperView>();
             EditorUtility.SetDirty(it);
         }
 

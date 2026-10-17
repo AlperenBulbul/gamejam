@@ -15,7 +15,7 @@ namespace LoadBearing
         public FocusState State { get; private set; } = FocusState.Desk;
         public bool IsTransitioning { get; private set; }
         public bool IsFocused => State == FocusState.Folder || State == FocusState.Map ||
-                                 State == FocusState.Binder || State == FocusState.Monitor;
+                                 State == FocusState.Binder || State == FocusState.Monitor || State == FocusState.Newspaper;
         /// Konuşma sistemi: masa görünümünde balon, yakın bakışta alt yazı
         public bool IsDeskView => !IsFocused;
 
