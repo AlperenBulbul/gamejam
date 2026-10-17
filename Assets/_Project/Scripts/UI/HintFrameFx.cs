@@ -90,7 +90,7 @@ namespace LoadBearing
 
         void Update()
         {
-            float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
+            float s = HintColors.Steady ? 1f : 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
             var hc = HintColors.Orange; hc.a = Mathf.Lerp(haloMinAlpha, haloMaxAlpha, s);
             if (halos != null)
                 foreach (var r in halos)

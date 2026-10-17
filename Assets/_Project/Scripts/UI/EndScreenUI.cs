@@ -18,6 +18,11 @@ namespace LoadBearing
         static readonly Color Bad = new Color(1f, 0.40f, 0.35f);
         static readonly Color Ink = new Color(0.07f, 0.075f, 0.08f);
 
+        /// Gün kartı açık: masa kontrolleri kapalı
+        public static bool Blocking { get; private set; }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => Blocking = false;
+
         readonly List<CustomerData> angryLeft = new List<CustomerData>();
         int faultsFixed;
 
@@ -52,6 +57,7 @@ namespace LoadBearing
                 case GameState.MainMenu:
                     angryLeft.Clear(); faultsFixed = 0;
                     StopAllCoroutines();
+                    Blocking = false;
                     dayCard.SetActive(false);
                     finish.SetActive(false);
                     break;
@@ -61,6 +67,7 @@ namespace LoadBearing
                     break;
                 case GameState.Ending:
                     StopAllCoroutines();
+                    Blocking = false;
                     dayCard.SetActive(false);
                     StartCoroutine(ShowFinish());
                     break;
@@ -73,12 +80,84 @@ namespace LoadBearing
         {
             var fc = FocusController.Instance;
             if (fc != null) fc.Back(); // monitörden masaya (siyah ekranın arkasında)
-            dayText.text = $"{day}. GÜN\n<size=40%><color=#F2B233>Yeni kurallar klasörde</color></size>";
+            dayText.text = $"{day}. GÜN\n<size=40%><color=#F2B233>Yeni kurallar klasörde</color></size>\n\n<size=28%><color=#B8C0C8>Geçmek için tıklayın</color></size>";
             dayCard.SetActive(true);
             dayGroup.alpha = 1f;
-            for (float t = 0f; t < 1.8f; t += Time.unscaledDeltaTime) yield return null;
-            for (float t = 0f; t < 0.9f; t += Time.unscaledDeltaTime) { dayGroup.alpha = 1f - t / 0.9f; yield return null; }
+            dayBlur.color = new Color(0.5f, 0.5f, 0.5f, 0f);
+            Blocking = true; // kart açıkken masa kapalı (tıklama gazeteyi açmasın)
+
+            // Kamera masaya dönünce arkadaki masa görüntüsünü bulanıklaştır (siyah yerine)
+            float wait = 0f;
+            while (fc != null && fc.IsTransitioning && wait < 1.5f) { wait += Time.unscaledDeltaTime; yield return null; }
+            yield return null;
+            if (RenderBlur())
+                for (float t = 0f; t < 0.35f; t += Time.unscaledDeltaTime)
+                {
+                    wait += Time.unscaledDeltaTime;
+                    dayBlur.color = new Color(0.5f, 0.5f, 0.5f, t / 0.35f);
+                    yield return null;
+                }
+            dayBlur.color = new Color(0.5f, 0.5f, 0.5f, dayBlur.texture != null ? 1f : 0f);
+
+            while (true)
+            {
+                wait += Time.unscaledDeltaTime;
+                var m = UnityEngine.InputSystem.Mouse.current; var kb = UnityEngine.InputSystem.Keyboard.current;
+                bool click = (m != null && m.leftButton.wasPressedThisFrame) ||
+                             (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame));
+                if (wait > 0.6f && click && !PauseMenu.IsPaused) break;
+                yield return null;
+            }
+            yield return null; // geçiş tıklaması masaya geçmesin
+            Blocking = false;
+            for (float t = 0f; t < 0.6f; t += Time.unscaledDeltaTime) { dayGroup.alpha = 1f - t / 0.6f; yield return null; }
             dayCard.SetActive(false);
+        }
+
+        // ------------------------------------------------------------------ bulanık arka plan (gün kartı)
+
+        RawImage dayBlur;
+        RenderTexture dayBlurRT;
+
+        /// Ana kamerayı (arayüzsüz) küçük bir dokuya çizip birkaç kez küçült / büyüt: yumuşak bulanıklık
+        bool RenderBlur()
+        {
+            var fc = FocusController.Instance;
+            var cam = fc != null ? fc.GetComponentInChildren<Camera>() : null;
+            if (cam == null) cam = Camera.main;
+            if (cam == null) return false;
+            int w = Mathf.Max(64, Screen.width / 2), h = Mathf.Max(36, Screen.height / 2);
+            var cur = RenderTexture.GetTemporary(w, h, 24);
+            cur.filterMode = FilterMode.Bilinear;
+            var prev = cam.targetTexture;
+            try { cam.targetTexture = cur; cam.Render(); }
+            catch (System.Exception e) { Debug.LogWarning("[DayCard] blur: " + e.Message); cam.targetTexture = prev; RenderTexture.ReleaseTemporary(cur); return false; }
+            cam.targetTexture = prev;
+            for (int i = 0; i < 4; i++) cur = BlurStep(cur, cur.width / 2, cur.height / 2);
+            for (int i = 0; i < 3; i++) cur = BlurStep(cur, cur.width * 2, cur.height * 2);
+            if (dayBlurRT == null || dayBlurRT.width != cur.width || dayBlurRT.height != cur.height)
+            {
+                if (dayBlurRT != null) { dayBlurRT.Release(); Destroy(dayBlurRT); }
+                dayBlurRT = new RenderTexture(cur.width, cur.height, 0) { filterMode = FilterMode.Bilinear };
+            }
+            Graphics.Blit(cur, dayBlurRT);
+            RenderTexture.ReleaseTemporary(cur);
+            dayBlur.texture = dayBlurRT;
+            return true;
+        }
+
+        static RenderTexture BlurStep(RenderTexture src, int w, int h)
+        {
+            var dst = RenderTexture.GetTemporary(Mathf.Max(1, w), Mathf.Max(1, h), 0);
+            dst.filterMode = FilterMode.Bilinear;
+            Graphics.Blit(src, dst);
+            RenderTexture.ReleaseTemporary(src);
+            return dst;
+        }
+
+        void OnDestroy()
+        {
+            if (dayBlurRT != null) { dayBlurRT.Release(); Destroy(dayBlurRT); }
         }
 
         // ------------------------------------------------------------------ bitiş ekranı
@@ -218,6 +297,12 @@ namespace LoadBearing
             // Gün kartı
             dayCard = Panel(root, "DayCard", Color.black);
             dayGroup = dayCard.AddComponent<CanvasGroup>();
+            var blurGo = new GameObject("Blur", typeof(RectTransform), typeof(RawImage));
+            blurGo.transform.SetParent(dayCard.transform, false);
+            Stretch((RectTransform)blurGo.transform);
+            dayBlur = blurGo.GetComponent<RawImage>();
+            dayBlur.raycastTarget = false;
+            dayBlur.color = new Color(0.5f, 0.5f, 0.5f, 0f);
             dayText = Label((RectTransform)dayCard.transform, "", 120f, Color.white, TextAlignmentOptions.Center);
             Stretch(dayText.rectTransform);
             dayText.fontStyle = FontStyles.Bold;

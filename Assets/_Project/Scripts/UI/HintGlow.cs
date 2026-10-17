@@ -6,6 +6,8 @@ namespace LoadBearing
     public static class HintColors
     {
         public static readonly Color Orange = new Color(1f, 0.40f, 0.06f); // kırmızıya biraz kaymış turuncu
+        /// true: göstergeler yanıp sönmez, sabit yanar
+        public static bool Steady = true;
     }
 
     /// Bir nesnenin etrafında parlayan / yanıp sönen turuncu çerçeve (oyuncuya ne yapacağını göstermek için).
@@ -119,7 +121,7 @@ namespace LoadBearing
         void Update()
         {
             if (!on || bars == null) return;
-            float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
+            float s = HintColors.Steady ? 1f : 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
             var c = HintColors.Orange;
             c.a = Mathf.Lerp(minAlpha, maxAlpha, s);
             foreach (var r in bars)

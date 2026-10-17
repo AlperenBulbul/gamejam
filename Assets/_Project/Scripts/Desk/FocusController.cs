@@ -52,6 +52,14 @@ namespace LoadBearing
             StartCoroutine(Move(point.position, point.rotation, target));
         }
 
+        /// Bir yakın bakıştan diğerine doğrudan geç (belge -> harita, harita -> belge ...). Masadaysa normal yakın bakış.
+        public void SwitchTo(Transform point, FocusState target)
+        {
+            if (IsTransitioning || point == null || State == target) return;
+            if (!IsFocused) { FocusOn(point, target); return; }
+            StartCoroutine(Move(point.position, point.rotation, target));
+        }
+
         /// Sağ tık / Esc
         public void Back()
         {
@@ -61,7 +69,16 @@ namespace LoadBearing
             var rot = deskLook != null ? deskLook.DeskRotation : cameraTransform.rotation;
             // İmleç neyi gösteriyorsa masaya dönünce nişan noktası onun üstünde olsun (ekran ortasına "sıfırlanmasın")
             var cam = cameraTransform.GetComponent<Camera>();
-            if (deskLook != null && cam != null && !CursorController.IsAiming)
+            var paper = State == FocusState.Newspaper ? FindAnyObjectByType<NewspaperView>() : null;
+            if (deskLook != null && paper != null)
+            {
+                // Gazeteden çıkınca bakış gazetenin ortasında kalsın (düğmeye tıklanan yere kaymasın)
+                var dir = paper.transform.position - deskPosition;
+                var r = paper.GetComponentInChildren<Renderer>();
+                if (r != null) dir = r.bounds.center - deskPosition;
+                if (dir.sqrMagnitude > 1e-4f) rot = deskLook.LookToward(dir);
+            }
+            else if (deskLook != null && cam != null && !CursorController.IsAiming)
             {
                 var ray = CursorController.PointerRay(cam);
                 Vector3 p = Physics.Raycast(ray, out var hit, 5f) ? hit.point : ray.GetPoint(1.5f);
@@ -69,6 +86,15 @@ namespace LoadBearing
                 if (dir.sqrMagnitude > 1e-4f) rot = deskLook.LookToward(dir);
             }
             StartCoroutine(Move(deskPosition, rot, FocusState.Desk));
+        }
+
+        /// Yakın bakıştan masaya dön ve verilen noktaya bak (mühürden sonra: gişedeki müşteriye)
+        public void BackLookingAt(Vector3 worldPoint)
+        {
+            if (IsTransitioning || !IsFocused || deskLook == null) { Back(); return; }
+            var dir = worldPoint - deskPosition;
+            if (dir.sqrMagnitude < 1e-4f) { Back(); return; }
+            StartCoroutine(Move(deskPosition, deskLook.LookToward(dir), FocusState.Desk));
         }
 
         public void SetHoldingStamp(bool holding)

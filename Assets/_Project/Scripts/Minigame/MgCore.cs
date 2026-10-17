@@ -24,6 +24,29 @@ namespace LoadBearing
         public abstract string Summary { get; }
         /// Tuş ipuçları (sağ alttaki liste)
         public abstract (string key, string action)[] Hints { get; }
+        /// Başlık kartında gösterilecek görsel (Resources/Minigame altındaki ad) ve altındaki yazı
+        public virtual string CardImage => null;
+        public virtual string CardImageCaption => "";
+
+        /// Oyun başlamadan önce ekranı bulanıklaştıran tanıtım: başlık + tek cümle "önce [görsel] sonra"
+        public virtual string IntroTitle => Title;
+        public virtual string IntroBefore => "";
+        public virtual string IntroAfter => "";
+        public virtual Vector2 IntroVisualSize => new Vector2(180f, 146f);
+        /// Cümlenin ortasındaki görsel (parent boyutu IntroVisualSize). Varsayılan: CardImage dokusu
+        public virtual void BuildIntroVisual(RectTransform parent)
+        {
+            var tex = string.IsNullOrEmpty(CardImage) ? null : MgUI.Tex(CardImage);
+            if (tex == null) return;
+            var go = new GameObject("Image", typeof(RectTransform), typeof(RawImage));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(parent, false);
+            var box = IntroVisualSize;
+            float k = Mathf.Min(box.x / tex.width, box.y / tex.height);
+            rt.sizeDelta = new Vector2(tex.width * k, tex.height * k);
+            go.GetComponent<RawImage>().texture = tex;
+            go.GetComponent<RawImage>().raycastTarget = false;
+        }
 
         public void Init(RectTransform root, ConstructionSite site, int channel)
         {

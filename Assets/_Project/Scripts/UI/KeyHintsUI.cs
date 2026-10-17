@@ -55,7 +55,7 @@ namespace LoadBearing
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
             var sc = StampController.Instance;
-            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}|{MinigameDirector.Hints != null}";
+            string key = $"{GuidedTour.Running}|{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}|{MinigameDirector.Hints != null}|{FolderView.DocOpen}";
             if (key != lastKey) { lastKey = key; Refresh(); }
         }
 
@@ -67,7 +67,8 @@ namespace LoadBearing
 
         void PlayIntro(FocusState f)
         {
-            if (root == null || introduced.Contains(f)) return;
+            // İlk tur oynandıysa (ya da oynuyorsa) ortadaki tanıtım hiç çıkmaz: liste hep sağ altta
+            if (root == null || introduced.Contains(f) || GuidedTour.Running || GuidedTour.ActiveThisRun) return;
             if (f != FocusState.Folder && f != FocusState.Map && f != FocusState.Binder && f != FocusState.Monitor && f != FocusState.Newspaper) return;
             introduced.Add(f);
             if (introRoutine != null) StopCoroutine(introRoutine);
@@ -205,13 +206,13 @@ namespace LoadBearing
         void Refresh()
         {
             var gm = GameManager.Instance;
-            bool show = gm != null && gm.DeskInputEnabled;
+            bool show = gm != null && gm.DeskInputEnabled && !GuidedTour.Running;
             root.SetActive(show);
             if (!show) return;
 
             var focus = FocusController.Instance != null ? FocusController.Instance.State : FocusState.Desk;
             bool holding = StampController.Instance != null && StampController.Instance.IsHolding;
-            text.text = Build(Hints(gm.State, focus, holding));
+            BuildRows(Hints(gm.State, focus, holding));
         }
 
         static MapView map;
@@ -224,34 +225,137 @@ namespace LoadBearing
             }
         }
 
+        /// Tuşlar simgeyle: {LMB} sol tık, {RMB} sağ tık, {WHEEL} tekerlek, {MOUSE} fare, {ESC} {SPACE} {TAB} {ENTER} {A} {D} {1-7}
         static (string key, string action)[] Hints(GameState state, FocusState focus, bool holding)
         {
             switch (focus)
             {
                 case FocusState.Folder:
                     return holding
-                        ? new[] { ("Sol tık form", "Mühür bas"), ("Sağ tık", "Mührü bırak") }
-                        : new[] { ("Sol tık mühür", "Mührü al"), ("Sağ tık / Esc", "Geri") };
+                        ? new[] { ("{LMB} form", "Mühür bas"), ("{RMB}", "Mührü bırak") }
+                        : new[] { ("{LMB}", "Mührü al"), ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Map:
-                    return new[] { ("Tekerlek", "Yakınlaştır"),
-                                   ("Boşluk", OverlayVisible ? "Tehlikeli bölgeyi gizle" : "Tehlikeli bölgeyi göster"),
-                                   ("Sağ tık / Esc", "Geri") };
+                    return FolderView.DocOpen
+                        ? new[] { ("{WHEEL}", "Yakınlaştır"),
+                                  ("{SPACE}", OverlayVisible ? "Tehlikeli bölgeyi gizle" : "Tehlikeli bölgeyi göster"),
+                                  ("{TAB}", "Belgeye dön"), ("{RMB} / {ESC}", "Geri") }
+                        : new[] { ("{WHEEL}", "Yakınlaştır"),
+                                  ("{SPACE}", OverlayVisible ? "Tehlikeli bölgeyi gizle" : "Tehlikeli bölgeyi göster"),
+                                  ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Binder:
-                    return new[] { ("Tekerlek / A D", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
+                    return FolderView.DocOpen
+                        ? new[] { ("{TAB}", "Belgeye dön"), ("{RMB} / {ESC}", "Geri") }
+                        : new[] { ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Monitor:
-                    if (MinigameDirector.Hints != null) return MinigameDirector.Hints;
-                    return new[] { ("Monitör < > / A D", "Kanal değiştir"), ("1-7", "Kanal seç"), ("Sağ tık / Esc", "Geri") };
+                    if (MinigameDirector.Hints != null) return Normalize(MinigameDirector.Hints);
+                    return new[] { ("{A} {D}", "Kanal değiştir"), ("{1-7}", "Kanal seç"), ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Newspaper:
                     return state == GameState.DayIntro
-                        ? new[] { ("Güne Başla / Enter", "Mesaiyi başlat"), ("Sağ tık / Esc", "Geri") }
-                        : new[] { ("Sağ tık / Esc", "Geri") };
+                        ? new[] { ("{ENTER}", "Güne başla"), ("{RMB} / {ESC}", "Geri") }
+                        : new[] { ("{RMB} / {ESC}", "Geri") };
                 case FocusState.HoldingStamp:
-                    return new[] { ("Sol tık dosya", "Mühür bas"), ("Sağ tık", "Mührü bırak") };
+                    return new[] { ("{LMB} dosya", "Mühür bas"), ("{RMB}", "Mührü bırak") };
                 default: // Desk
                     return state == GameState.DayIntro
-                        ? new[] { ("Fare", "Etrafa bak"), ("Gazete", "Oku ve güne başla"), ("Esc", "Duraklat") }
-                        : new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver"), ("Esc", "Duraklat") };
+                        ? new[] { ("{MOUSE}", "Etrafa bak"), ("{LMB}", "Gazeteyi oku"), ("{ESC}", "Duraklat") }
+                        : new[] { ("{MOUSE}", "Etrafa bak"), ("{LMB}", "Seç / incele"), ("{ESC}", "Duraklat") };
             }
+        }
+
+        /// Minigame'in düz yazılı tuşlarını simgeye çevir ("Sol tık / Boşluk" -> {LMB} / {SPACE})
+        static (string key, string action)[] Normalize((string key, string action)[] hints)
+        {
+            var r = new (string, string)[hints.Length];
+            for (int i = 0; i < hints.Length; i++)
+            {
+                string k = hints[i].key
+                    .Replace("Sol tık", "{LMB}").Replace("Sağ tık", "{RMB}").Replace("Tekerlek", "{WHEEL}")
+                    .Replace("Boşluk", "{SPACE}").Replace("Enter", "{ENTER}").Replace("Esc", "{ESC}").Replace("Tab", "{TAB}");
+                r[i] = (k, hints[i].action);
+            }
+            return r;
+        }
+
+        // ------------------------------------------------------------------ satırlar (simge + yazı)
+
+        readonly System.Collections.Generic.List<GameObject> rows = new System.Collections.Generic.List<GameObject>();
+        string lastRowsKey;
+
+        void BuildRows((string key, string action)[] hints)
+        {
+            var sbk = new StringBuilder();
+            foreach (var h in hints) sbk.Append(h.key).Append('|').Append(h.action).Append(';');
+            if (sbk.ToString() == lastRowsKey && rows.Count > 0) return;
+            lastRowsKey = sbk.ToString();
+
+            foreach (var r in rows) if (r != null) { r.SetActive(false); Destroy(r); }
+            rows.Clear();
+            if (text != null) text.gameObject.SetActive(false);
+            var vl = root.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
+            if (vl != null) vl.spacing = 6f;
+
+            foreach (var h in hints)
+            {
+                var row = new GameObject("Row", typeof(RectTransform), typeof(UnityEngine.UI.HorizontalLayoutGroup));
+                row.transform.SetParent(root.transform, false);
+                var hl = row.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+                hl.spacing = 6f;
+                hl.childAlignment = TextAnchor.MiddleLeft;
+                hl.childControlWidth = hl.childControlHeight = true;
+                hl.childForceExpandWidth = hl.childForceExpandHeight = false;
+                rows.Add(row);
+
+                foreach (var (isIcon, val) in Tokens(h.key))
+                {
+                    if (isIcon) KeyIcons.Add(row.transform, val, textFont);
+                    else AddText(row.transform, val, keyColor, true);
+                }
+                var gap = new GameObject("Gap", typeof(RectTransform), typeof(UnityEngine.UI.LayoutElement));
+                gap.transform.SetParent(row.transform, false);
+                gap.GetComponent<UnityEngine.UI.LayoutElement>().preferredWidth = 6f;
+                AddText(row.transform, h.action, Color.white, false);
+            }
+        }
+
+        TMP_FontAsset textFont => text != null ? text.font : null;
+
+        void AddText(Transform parent, string s, Color c, bool bold)
+        {
+            var go = new GameObject("T", typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            var t = go.GetComponent<TextMeshProUGUI>();
+            if (textFont != null) t.font = textFont;
+            t.text = s;
+            t.fontSize = 22f;
+            t.color = c;
+            t.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            t.alignment = TextAlignmentOptions.MidlineLeft;
+            t.raycastTarget = false;
+        }
+
+        /// "{LMB} / {ESC}" -> simge, yazı("/"), simge
+        static System.Collections.Generic.List<(bool, string)> Tokens(string key)
+        {
+            var list = new System.Collections.Generic.List<(bool, string)>();
+            int i = 0;
+            while (i < key.Length)
+            {
+                int o = key.IndexOf('{', i);
+                if (o < 0) { Add(list, key.Substring(i)); break; }
+                Add(list, key.Substring(i, o - i));
+                int c = key.IndexOf('}', o);
+                if (c < 0) { Add(list, key.Substring(o)); break; }
+                list.Add((true, key.Substring(o + 1, c - o - 1)));
+                i = c + 1;
+            }
+            return list;
+        }
+
+        static void Add(System.Collections.Generic.List<(bool, string)> list, string s)
+        {
+            s = s.Trim();
+            if (s.Length > 0) list.Add((false, s));
         }
 
         string Build((string key, string action)[] hints, int pulseIndex = -1)

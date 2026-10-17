@@ -31,6 +31,7 @@ namespace LoadBearing
         MaterialPropertyBlock mpb;
         GameObject button;
         bool glowing;
+        public GameObject StartButton => button;
 
         void Awake()
         {
@@ -247,7 +248,7 @@ namespace LoadBearing
         void UpdateGlow()
         {
             if (!glowing || glowRenderers == null) return;
-            float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
+            float s = HintColors.Steady ? 1f : 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
             var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(0f, 1f, s));
             foreach (var r in glowRenderers)
             {

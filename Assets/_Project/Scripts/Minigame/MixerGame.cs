@@ -7,7 +7,7 @@ namespace LoadBearing
 {
     /// 1. gün minigame'i: Mikser bandı.
     /// Bant malzemeleri mikserin hunisine taşır. İrsaliyede olanlar (çimento, dere kumu, çakıl, şebeke suyu) girmeli;
-    /// müteahhidin araya kattığı deniz kumu ve deniz suyu (kırmızı etiketli) tıklanıp banttan atılmalı.
+    /// müteahhidin araya kattığı deniz kumu (kırmızı etiketli çuval) tıklanıp banttan atılmalı.
     ///  - Tuzak huniye girerse: KUSUR +1
     ///  - Doğru malzeme atılırsa (eksik malzeme): KUSUR +1
     /// Yerleşim tasarımcının OKU_BENI_Santiye.md tablosundan (1280 × 720, sol üst köşeler).
@@ -29,12 +29,11 @@ namespace LoadBearing
             new Spec { tex = "SPR_Item_Cement", label = "Çimento" },
             new Spec { tex = "SPR_Item_RiverSand", label = "Dere kumu" },
             new Spec { tex = "SPR_Item_Gravel", label = "Çakıl" },
-            new Spec { tex = "SPR_Item_CityWater", label = "Şebeke suyu", liquid = true },
+            new Spec { tex = "SPR_Item_CityWater", label = "Su", liquid = true },
         };
         static readonly Spec[] Bad =
         {
-            new Spec { tex = "SPR_Item_SeaSand", label = "Deniz kumu", trap = true },
-            new Spec { tex = "SPR_Item_SeaWater", label = "Deniz suyu", trap = true, liquid = true },
+            new Spec { tex = "SPR_Item_SeaSand", label = "Deniz kumu", trap = true }, // tek tuzak: deniz kumu
         };
 
         enum ItemState { Belt, Tossed, Falling }
@@ -58,14 +57,18 @@ namespace LoadBearing
 
         public override string Title => "MİKSER KONTROLÜ";
         public override string Instructions =>
-            "Müteahhit malzemeden kaçıyor! Bantta <b>irsaliyede olmayan</b> malzemeleri tıkla, banttan at.\n" +
-            "<color=#E2483A><b>Kırmızı etiketliler</b></color> (deniz kumu, deniz suyu) betonu çürütür. Doğru malzemeyi atma!";
+            "Bu çuvalı görünce\n<b><color=#F2B233>TIKLA</color></b>\n\n<size=75%><color=#B8C0C8>Diğerlerine dokunma</color></size>";
+        public override string CardImage => "SPR_Item_SeaSand";
+        public override string IntroTitle => "MÜTEAHHİT MALZEMEDEN ÇALIYOR!";
+        public override string IntroBefore => "Bantta";
+        public override string IntroAfter => "görünce çıkart";
+        public override string CardImageCaption => "<color=#FF5A4A><b>DENİZ KUMU = YASAK</b></color>";
         public override string Strip => $"{SiteLabel}   {(site != null ? site.StepLabel.ToUpper(new System.Globalization.CultureInfo("tr-TR")) : "")}   BETON KARIŞIMI";
         public override string Summary =>
-            $"Ayıklanan tuzak: {trapsCaught} / {Traps}\n" +
-            $"Miksere giren deniz kumu / suyu: {trapsIn}\n" +
-            $"Boşa atılan doğru malzeme: {goodTossed}";
-        public override (string key, string action)[] Hints => new[] { ("Sol tık", "Yanlış malzemeyi banttan at"), ("Sağ tık / Esc", "Geri") };
+            $"Ayıklanan deniz kumu: <b>{trapsCaught} / {Traps}</b>\n" +
+            $"Miksere kaçan: <b>{trapsIn}</b>\n" +
+            $"Yanlış atılan: <b>{goodTossed}</b>";
+        public override (string key, string action)[] Hints => new[] { ("Sol tık", "Deniz kumunu banttan at"), ("Sağ tık / Esc", "Geri") };
 
         protected override void Build()
         {
@@ -96,7 +99,7 @@ namespace LoadBearing
 
             // Yönerge paneli
             MgUI.Rect(root, new Color(0f, 0f, 0f, 0.7f), 300f, 600f, 680f, 64f);
-            MgUI.Text(root, "İRSALİYEDE OLMAYANI TIKLA · BANTTAN AT", 300f, 600f, 680f, 64f, 26f, new Color(0.87f, 0.9f, 0.93f), TextAlignmentOptions.Center)
+            MgUI.Text(root, "DENİZ KUMUNU TIKLA · BANTTAN AT", 300f, 600f, 680f, 64f, 28f, new Color(0.87f, 0.9f, 0.93f), TextAlignmentOptions.Center)
                 .characterSpacing = 2f;
 
             // Sıra: ilki doğru malzeme, tuzaklar arka arkaya en fazla 2

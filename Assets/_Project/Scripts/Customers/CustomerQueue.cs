@@ -68,6 +68,13 @@ namespace LoadBearing
             if (gm.CheckPendingFired()) return;   // 3. ceza / 3. haksız ret: müşteri çıktı, oyun biter
 
             var day = gm.CurrentDay;
+            // 1. gün: 2. müşteriden sonra telsiz + monitör minigame'i, bitince 3. müşteri gelir
+            if (gm.Run.day == 1 && index == 2 && index < day.customers.Length)
+            {
+                var mg = MinigameDirector.Instance;
+                if (mg != null && mg.TryStart(1, () => { if (gm.State == GameState.Working) Schedule(gm.Config.nextCustomerDelay); }))
+                    return;
+            }
             if (index >= day.customers.Length) gm.OnLastCustomerLeft();
             else Schedule(gm.Config.nextCustomerDelay);
         }

@@ -1,5 +1,7 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace LoadBearing
 {
@@ -171,7 +173,7 @@ namespace LoadBearing
 
             while (!decided)
             {
-                if (!FreezePatience) Patience -= Time.deltaTime / Mathf.Max(1f, Data.patienceSeconds);
+                if (!FreezePatience && !GuidedTour.Running) Patience -= Time.deltaTime / Mathf.Max(1f, Data.patienceSeconds);
                 if (tutorial)
                 {
                     // İlk tur: sinirlenir ama gitmez (Sinirli aşamasında kalır, arada bir söylenir)
@@ -203,9 +205,17 @@ namespace LoadBearing
             // Dosyayı al, çık
             Current = Phase.WalkOut;
             GameEvents.RaiseCustomerLeaving(Data);
-            yield return Turn(Quaternion.LookRotation(Flat(doorPos - transform.position)), 0.2f);
-            if (angryExit) walkTime *= 0.75f; // sinirli: hızlı yürür
-            yield return Walk(transform.position, doorPos);
+            // Sinirli çıkış: reddedildi, beklemekten gitti ya da öfkelenene kadar bekletildi
+            bool angryOut = angryExit || !approved || Stage >= PatienceStage.Rage;
+            var exitClip = ExitClip(angryOut);
+            if (exitClip != null)
+                yield return ClipExit(exitClip, angryOut);
+            else
+            {
+                yield return Turn(Quaternion.LookRotation(Flat(doorPos - transform.position)), 0.2f);
+                if (angryExit) walkTime *= 0.75f; // sinirli: hızlı yürür
+                yield return Walk(transform.position, doorPos);
+            }
 
             Current = Phase.Gone;
             GameEvents.RaiseCustomerLeft(Data, angryExit);
@@ -386,8 +396,67 @@ namespace LoadBearing
             if (visual != null) visual.localRotation = Quaternion.identity;
         }
 
+        // ------------------------------------------------------------------ çıkış klibi (Selin: selam verip / söylenerek döner, yürür)
+
+        PlayableGraph exitGraph;
+
+        /// Karakterin kendi çıkış klibi (Resources/Characters/<Ad>/A_Customer_<Ad>_WalkOut[Angry]). Şimdilik Selin.
+        AnimationClip ExitClip(bool angry)
+        {
+            if (animator == null || !animator.isHuman) return null;
+            string who = name.Contains("Selin") || (animator.avatar != null && animator.avatar.name.Contains("Selin")) ? "Selin" : null;
+            if (who == null) return null;
+            string path = $"Characters/{who}/A_Customer_{who}_{(angry ? "WalkOutAngry" : "WalkOut")}";
+            foreach (var c in Resources.LoadAll<AnimationClip>(path))
+                if (c != null && !c.name.StartsWith("__preview__")) return c;
+            return null;
+        }
+
+        /// Klip karakteri kendisi 180° döndürür (kök hareketi açık); dönüş bitince kod kapıya doğru yürütür.
+        /// Normal: dönüş 1,0 sn, 1,2 m/sn · Sinirli: dönüş 0,6 sn, 1,55 m/sn (tasarımcının notu)
+        IEnumerator ClipExit(AnimationClip clip, bool angry)
+        {
+            float turnEnd = angry ? 0.6f : 1.0f;
+            float speed = angry ? 1.55f : 1.2f;
+            var model = animator.transform;
+            bool oldRootMotion = animator.applyRootMotion;
+            animator.applyRootMotion = true;
+            AnimationPlayableUtilities.PlayClip(animator, clip, out exitGraph);
+            walking = false;
+
+            var target = new Vector3(doorPos.x, transform.position.y, doorPos.z);
+            float t = 0f, guard = 0f;
+            while (true)
+            {
+                float dt = Time.deltaTime;
+                t += dt;
+                if (t >= turnEnd)
+                {
+                    walking = true;
+                    // Modelin baktığı yön kapıya dönsün (kök hafifçe çevrilir), sonra o yöne yürü
+                    Vector3 fwd = Flat(model.forward), toDoor = Flat(target - transform.position);
+                    float yaw = Vector3.SignedAngle(fwd, toDoor, Vector3.up);
+                    transform.rotation = Quaternion.Euler(0f, yaw * (1f - Mathf.Exp(-6f * dt)), 0f) * transform.rotation;
+                    transform.position = Vector3.MoveTowards(transform.position, target, speed * dt);
+                    guard += dt;
+                    if ((transform.position - target).sqrMagnitude < 0.0004f || guard > 12f) break;
+                }
+                // Klip bitti: denetleyicinin yürüme döngüsüne geç (Walk), dönüş modelde kalır
+                if (exitGraph.IsValid() && t >= clip.length)
+                {
+                    exitGraph.Destroy();
+                    animator.applyRootMotion = oldRootMotion;
+                }
+                yield return null;
+            }
+            if (exitGraph.IsValid()) exitGraph.Destroy();
+            animator.applyRootMotion = oldRootMotion;
+            walking = false;
+        }
+
         void OnDestroy()
         {
+            if (exitGraph.IsValid()) exitGraph.Destroy();
             if (glass != null) glass.localPosition = glassHome;
         }
     }

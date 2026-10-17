@@ -56,7 +56,7 @@ namespace LoadBearing
                     LastHit = hit;
                     HasHit = true;
                     var it = hit.collider.GetComponentInParent<Interactable>();
-                    if (it != null && it.isActiveAndEnabled && it.IsClickableIn(focus)) target = it;
+                    if (it != null && it.isActiveAndEnabled && it.IsClickableIn(focus) && GuidedTour.Allows(it)) target = it;
                 }
             }
 
@@ -79,7 +79,7 @@ namespace LoadBearing
             {
                 // Açık dosyada mühür elindeyse sağ tık önce mührü bırakır
                 var sc = StampController.Instance;
-                if (sc == null || !sc.TryDropInFocus()) fc.Back();
+                if ((sc == null || !sc.TryDropInFocus()) && GuidedTour.AllowsBack) fc.Back(); // ilk turda geri kapalı
             }
         }
     }

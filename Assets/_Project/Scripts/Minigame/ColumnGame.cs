@@ -32,10 +32,32 @@ namespace LoadBearing
 
         public override string Title => "KOLON DÖKÜMÜ";
         public override string Instructions =>
-            "Kalıplar sallanıyor! Şakül göstergesindeki <b>kabarcık yeşil bölgedeyken</b> tıkla (ya da Boşluk): kolon dik dökülür.\n" +
-            "Eğri dökülen kolon deprem testinde binayı yıkar.";
+            "Kabarcık <b><color=#5FD068>YEŞİLDEYKEN</color></b>\n<b><color=#F2B233>TIKLA</color></b>\n\n<size=75%><color=#B8C0C8>Kolon dik dökülsün</color></size>";
+        public override string IntroTitle => "KOLONLAR EĞRİ DÖKÜLÜYOR!";
+        public override string IntroBefore => "Kabarcık";
+        public override string IntroAfter => "yeşildeyken tıkla";
+        public override Vector2 IntroVisualSize => new Vector2(340f, 60f);
+
+        /// Şakül göstergesi: tüp + yeşil bölge + ortada kabarcık
+        public override void BuildIntroVisual(RectTransform parent)
+        {
+            void Img(Texture tex, Vector2 size, Color c)
+            {
+                var go = new GameObject("I", typeof(RectTransform), typeof(RawImage));
+                var rt = (RectTransform)go.transform;
+                rt.SetParent(parent, false);
+                rt.sizeDelta = size;
+                var ri = go.GetComponent<RawImage>(); ri.texture = tex; ri.color = c; ri.raycastTarget = false;
+            }
+            const float k = 340f / 600f;
+            Img(MgUI.Tex("UI_Plumb_Gauge"), new Vector2(600f * k, 52f * k), Color.white);
+            float zone = Tolerance / Amplitude * 280f * k;
+            Img(null, new Vector2(zone * 2f, 28f * k), new Color(0.30f, 0.75f, 0.35f, 0.9f));
+            Img(MgUI.Tex("UI_Plumb_Bubble_White"), new Vector2(30f, 30f), new Color(0.45f, 1f, 0.45f));
+        }
+
         public override string Strip => $"{SiteLabel}   KAT {floor + 1} / {Floors}   KOLON {Mathf.Min(col + 1, 3)} / 3";
-        public override string Summary => $"Dik kolon: {goodTotal} / {Floors * 3}\nEğri kolon: {badTotal}";
+        public override string Summary => $"Dik kolon: <b>{goodTotal} / {Floors * 3}</b>\nEğri kolon: <b>{badTotal}</b>";
         public override (string key, string action)[] Hints => new[] { ("Sol tık / Boşluk", "Kolonu dik dök"), ("Sağ tık / Esc", "Geri") };
 
         protected override void Build()
@@ -136,7 +158,7 @@ namespace LoadBearing
 
                 case Phase.Done:
                     wait -= dt;
-                    if (wait <= 0f) Finished = true;
+                    if (wait <= 0f) { Finished = true; floorLabel.text = ""; } // sonuç kartının arkasında yazı kalmasın
                     break;
             }
             TickFx(dt);

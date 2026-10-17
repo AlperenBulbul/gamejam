@@ -26,14 +26,16 @@ namespace LoadBearing
             basePitch = e.x > 180f ? e.x - 360f : e.x;
         }
 
+        int skipFrames = 3;
+
         void Update()
         {
             var gm = GameManager.Instance;
-            if (gm != null && !gm.DeskInputEnabled) return; // menü vb. açıkken kamera dönmez
+            if (gm != null && !gm.DeskInputEnabled) { skipFrames = 3; return; } // menü vb. açıkken kamera dönmez
 
             var fc = FocusController.Instance;
             if (fc != null && (fc.IsTransitioning || !(fc.State == FocusState.Desk || fc.State == FocusState.HoldingStamp)))
-                return;
+            { skipFrames = 3; return; }
 
             var cfg = GameConfig.Current;
             float maxYaw = cfg ? cfg.lookYaw : 60f;
@@ -41,7 +43,10 @@ namespace LoadBearing
             float maxPitchDown = cfg ? cfg.lookPitchDown : 45f;
 
             var mouse = Mouse.current;
-            if (mouse != null && CursorController.IsAiming)
+            // İmleç kilitlendiği ilk karelerde fare hareketi sıçrar (imleç ortaya ışınlanır): yok say
+            if (!CursorController.IsAiming) skipFrames = 3;
+            else if (skipFrames > 0) { skipFrames--; if (mouse != null) mouse.delta.ReadValue(); }
+            else if (mouse != null)
             {
                 Vector2 d = mouse.delta.ReadValue();
                 targetYaw = Mathf.Clamp(targetYaw + d.x * sensitivity, -maxYaw, maxYaw);

@@ -54,6 +54,10 @@ namespace LoadBearing
         public Color approveInk = new Color(0.12f, 0.55f, 0.22f, 0.9f);
         public Color rejectInk = new Color(0.78f, 0.12f, 0.10f, 0.9f);
 
+        public static FolderView Instance { get; private set; }
+        /// Açık bir belge var mı (harita / kural klasöründen "Belgeye dön" için)
+        public static bool DocOpen => Instance != null && Instance.Current != null && !Instance.Leaving;
+
         public CustomerData Current { get; private set; }
         /// Bu dosyaya mühür basıldı mı (aynı dosyaya ikinci kez basılamaz)
         public bool Decided { get; private set; }
@@ -68,6 +72,7 @@ namespace LoadBearing
                 : transform.position + Vector3.up * 0.016f;
 
         /// Açık dosyadaki formun KARAR kutusunun ortası (yakın bakışta mühür buraya basılır)
+        public RectTransform StampAreaRect => stampArea;
         public Vector3 FormStampWorld => stampArea != null ? stampArea.TransformPoint(stampArea.rect.center) : StampAreaWorld;
 
         /// Başvuru formunun RectTransform'u
@@ -147,12 +152,76 @@ namespace LoadBearing
 
         void Awake()
         {
-            // Formdaki "ADA / PARSEL" etiketi -> "ADA"
+            // Form: "ADA" etiketi -> "PARSEL"; mühendis kaşesi satırı kaldırıldı, zemin etüdü onun yerine çıkar
+            TMP_Text kaseLabel = null, soilLabel = null;
             if (content != null)
                 foreach (var t in content.GetComponentsInChildren<TMP_Text>(true))
-                    if (t.text == "ADA / PARSEL") t.text = "ADA";
+                {
+                    // Etiketler biraz daha belirgin (tasarımcı: #444444, Medium, ~%8 büyük)
+                    if (t.name.StartsWith("L_"))
+                    {
+                        t.color = new Color32(0x44, 0x44, 0x44, 0xFF);
+                        t.fontStyle = FontStyles.Normal;
+                        t.fontWeight = FontWeight.Medium;
+                        t.fontSize *= 1.08f;
+                    }
+                    if (t.text == "ADA / PARSEL" || t.text == "ADA" || t.text == "PARSEL") t.text = "ARSA NO";
+                    else if (t.text == "MÜHENDİS KAŞESİ") kaseLabel = t;
+                    else if (t.text == "ZEMİN ETÜDÜ") soilLabel = t;
+                }
+            if (kaseLabel != null && soilLabel != null && license != null && soil != null)
+            {
+                kaseLabel.text = soilLabel.text;
+                soilLabel.gameObject.SetActive(false);
+                var oldLine = RowLine(soilLabel);          // boş kalan son satırın çizgisi de gitsin
+                if (oldLine != null) oldLine.SetActive(false);
+                license.color = soil.color;
+                license.fontStyle = soil.fontStyle;
+                soil.gameObject.SetActive(false);
+                soil = license;   // zemin etüdü artık kaşe satırında
+                license = null;
+                soilRowLabel = kaseLabel;
+            }
+            else soilRowLabel = soilLabel;
+            soilRowLine = RowLine(soilRowLabel);
+            Instance = this;
             EnsureStampMark();
-            HideImmediate();
+            HideImmediate(); // müşteri gelene kadar dosya masada görünmez
+
+            // Belge <-> harita / kural klasörü kısayolları (hata olsa bile dosya gizli kalsın)
+            try { gameObject.AddComponent<DocLinks>().Init(this, adaParsel, area, floors, soil); }
+            catch (System.Exception e) { Debug.LogException(e); }
+        }
+
+        // ------------------------------------------------------------------ zemin etüdü satırı (1. gün yok)
+
+        TMP_Text soilRowLabel;
+        GameObject soilRowLine;
+
+        /// Satırın altındaki ince çizgi (FolderSetup: etiket y - 3, çizgi y - 19)
+        GameObject RowLine(TMP_Text label)
+        {
+            if (label == null || content == null) return null;
+            float want = label.rectTransform.anchoredPosition.y - 16f;
+            foreach (var img in content.GetComponentsInChildren<Image>(true))
+            {
+                if (img.name != "Line" || img.transform.parent != label.transform.parent) continue;
+                if (Mathf.Abs(img.rectTransform.offsetMax.y - want) < 1f) return img.gameObject;
+            }
+            return null;
+        }
+
+        /// 1. günde zemin etüdü kuralı yok: satır (etiket, değer, KURAL düğmesi, çizgi) hiç görünmesin
+        void SetSoilRow(bool visible)
+        {
+            if (soilRowLabel != null) soilRowLabel.gameObject.SetActive(visible);
+            if (soil != null)
+            {
+                soil.gameObject.SetActive(visible);
+                var link = soil.transform.parent != null ? soil.transform.parent.Find("Link_" + soil.name) : null;
+                if (link != null) link.gameObject.SetActive(visible);
+            }
+            if (soilRowLine != null) soilRowLine.SetActive(visible);
         }
 
         void EnsureStampMark()
@@ -219,6 +288,7 @@ namespace LoadBearing
             GameEvents.CustomerLeaving += OnCustomerLeaving;
             GameEvents.CustomerLeft += OnCustomerLeft;
             GameEvents.StateChanged += OnStateChanged;
+            GameEvents.Stamped += OnStamped;
         }
 
         void OnDisable()
@@ -228,6 +298,7 @@ namespace LoadBearing
             GameEvents.CustomerLeaving -= OnCustomerLeaving;
             GameEvents.CustomerLeft -= OnCustomerLeft;
             GameEvents.StateChanged -= OnStateChanged;
+            GameEvents.Stamped -= OnStamped;
         }
 
         void OnCustomerLeft(CustomerData c, bool angry) { if (c == Current) Hide(); }
@@ -238,10 +309,64 @@ namespace LoadBearing
             if (c != Current) return;
             Leaving = true;
             var fc = FocusController.Instance;
-            if (fc != null && fc.State == FocusState.Folder) fc.Back();
+            if (fc != null && fc.State == FocusState.Folder) LookAtCustomer(fc, c);
             if (interactable != null) interactable.enabled = false;
             StopAllCoroutines();
             StartCoroutine(SlideOutAndHide());
+        }
+
+        // ------------------------------------------------------------------ mühürden sonra müşteriye dön
+
+        const float AutoReturnDelay = 2f;
+
+        void OnStamped(CustomerData c, bool approved)
+        {
+            if (c != Current) return;
+            StartCoroutine(AutoReturn(c));
+        }
+
+        /// Mühür basıldıktan ~2 sn sonra belgeden çık; bakış gişedeki müşteriye (tepkisini görelim)
+        IEnumerator AutoReturn(CustomerData c)
+        {
+            yield return new WaitForSeconds(AutoReturnDelay);
+            var sc = StampController.Instance;
+            for (float w = 0f; w < 1.5f && sc != null && sc.IsHolding; w += Time.deltaTime) yield return null; // mühür yerine dönsün
+            while (PauseMenu.IsPaused) yield return null;
+            var fc = FocusController.Instance;
+            if (fc == null || c != Current || Leaving) yield break;
+            while (fc.IsTransitioning) yield return null;
+            if (fc.State != FocusState.Folder) yield break; // oyuncu kendisi çıktı / haritaya geçti
+            LookAtCustomer(fc, c);
+        }
+
+        static void LookAtCustomer(FocusController fc, CustomerData c)
+        {
+            if (TryCustomerFace(c, out var face)) fc.BackLookingAt(face);
+            else fc.Back();
+        }
+
+        /// Müşterinin yüzü (modelin tepesinin biraz altı)
+        static bool TryCustomerFace(CustomerData c, out Vector3 face)
+        {
+            face = default;
+            foreach (var cc in FindObjectsByType<CustomerController>(FindObjectsSortMode.None))
+            {
+                if (cc == null || cc.Data != c) continue;
+                var anim = cc.GetComponentInChildren<Animator>();
+                var head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+                if (head != null) { face = head.position + Vector3.up * 0.05f; return true; }
+                bool any = false;
+                var b = new Bounds(cc.transform.position, Vector3.zero);
+                foreach (var r in cc.GetComponentsInChildren<SkinnedMeshRenderer>())
+                {
+                    if (!r.enabled) continue;
+                    if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+                }
+                face = any ? new Vector3(b.center.x, b.max.y - Mathf.Min(0.2f, b.size.y * 0.12f), b.center.z)
+                           : cc.transform.position + Vector3.up * 1.55f;
+                return true;
+            }
+            return false;
         }
 
         IEnumerator SlideOutAndHide()
@@ -315,9 +440,10 @@ namespace LoadBearing
             area.text = $"{c.areaM2} m²";
             floors.text = c.floors.ToString();
             use.text = c.use;
-            license.text = c.licenseNo;
+            if (license != null) license.text = c.licenseNo;
 
-            // 1. günde zemin etüdü alanı boş (GDD): kural 2. gün geliyor
+            // 1. günde zemin etüdü satırı hiç yok (kural 2. gün geliyor)
+            SetSoilRow(day >= 2);
             if (day < 2) soil.text = "—";
             else soil.text = c.soil switch
             {

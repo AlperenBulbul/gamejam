@@ -12,6 +12,7 @@ namespace LoadBearing
     public class TutorialHints : MonoBehaviour
     {
         HintGlow binderGlow, mapGlow, monitorGlow, folderGlow, approveGlow, rejectGlow;
+        Transform parcelTarget;
         bool built;
         bool rulesShown, monitorShown, folderShown, folderAgainShown, firstStampDone;
         FolderView folderView;
@@ -65,7 +66,7 @@ namespace LoadBearing
             if (approveGlow == null && rejectGlow == null) return;
             var fc = FocusController.Instance;
             var sc = StampController.Instance;
-            bool show = !firstStampDone && FirstDay && openedBinder && openedMap && fc != null // önce kurallara ve haritaya baksın && fc.State == FocusState.Folder && !fc.IsTransitioning
+            bool show = !firstStampDone && FirstDay && !GuidedTour.ActiveThisRun && openedBinder && openedMap && fc != null // önce kurallara ve haritaya baksın && fc.State == FocusState.Folder && !fc.IsTransitioning
                         && folderView != null && folderView.Current != null && !folderView.Decided && !folderView.Leaving
                         && (sc == null || !sc.IsHolding);
             if (approveGlow != null && approveGlow.IsOn != show) approveGlow.Show(show);
@@ -73,7 +74,7 @@ namespace LoadBearing
         }
 
         /// Kapalı dosya modeli (müşteri gelene kadar gizli olduğu için isimle bulunur)
-        static Renderer FolderModel(FolderView f)
+        internal static Renderer FolderModel(FolderView f)
         {
             var root = f.closedModel != null ? f.closedModel.transform : f.transform;
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
@@ -86,7 +87,7 @@ namespace LoadBearing
         void OnArrived(CustomerData c)
         {
             // İlk müşteri dosyasını bıraktı: önce dosyayı açması gerektiğini göster
-            if (folderShown || !FirstDay) return;
+            if (folderShown || !FirstDay || GuidedTour.ActiveThisRun) return; // hazır tur varsa onun göstergeleri
             folderShown = true;
             Show(folderGlow, true);
         }
@@ -102,7 +103,7 @@ namespace LoadBearing
 
         /// En büyük görünen model (tasarım modeli; gizli greybox değil)
         /// Mührün masaya değen parçası (taban): halka onun çevresine
-        static Renderer LowestPart(Transform root)
+        internal static Renderer LowestPart(Transform root)
         {
             Renderer best = null;
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>())
@@ -144,6 +145,12 @@ namespace LoadBearing
 
         void OnTransition(FocusState from, FocusState to)
         {
+            // İlk müşterinin belgesi açıkken haritaya bakınca: belgedeki parsel haritada yanıp söner
+            if (to == FocusState.Map) ShowParcel();
+            if (from == FocusState.Map) HideParcel();
+
+            if (GuidedTour.ActiveThisRun) return; // hazır tur: başka hiçbir şey yanmasın (arsa parıltısı yukarıda)
+
             switch (to)
             {
                 case FocusState.Binder: openedBinder = true; Show(binderGlow, false); break;
@@ -169,11 +176,64 @@ namespace LoadBearing
             }
         }
 
+        void ShowParcel()
+        {
+            var gm = GameManager.Instance;
+            var c = folderView != null ? folderView.Current : null;
+            if (!FirstDay || c == null || folderView.Decided || gm.Days == null || gm.Days.Length == 0) return;
+            var first = gm.Days[0] != null && gm.Days[0].customers != null && gm.Days[0].customers.Length > 0 ? gm.Days[0].customers[0] : null;
+            if (c != first) return; // sadece ilk müşteri (öğretici)
+            var map = FindAnyObjectByType<MapView>();
+            if (map == null) return;
+
+            if (parcelTarget == null)
+            {
+                // Arsanın üstünde yarı saydam turuncu yama: sadece o arsa hafifçe parlar (çerçeve yok)
+                var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                go.name = "ParcelGlow";
+                Destroy(go.GetComponent<Collider>());
+                parcelTarget = go.transform;
+                parcelTarget.SetParent(transform, false);
+                parcelTarget.localScale = new Vector3(0.026f, 0.022f, 1f);
+                parcelRend = go.GetComponent<Renderer>();
+                var mat = HintGlow.GlowMaterial();
+                if (mat != null) parcelRend.sharedMaterial = mat;
+                parcelRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                parcelRend.receiveShadows = false;
+            }
+            parcelTarget.position = map.PixelToWorld(c.mapPixel) + Vector3.up * 0.003f;
+            parcelTarget.rotation = Quaternion.Euler(90f, 0f, 0f); // yüzü yukarı
+            parcelTarget.gameObject.SetActive(true);
+            parcelOn = true;
+        }
+
+        Renderer parcelRend;
+        bool parcelOn;
+        MaterialPropertyBlock parcelMpb;
+
+        void HideParcel()
+        {
+            parcelOn = false;
+            if (parcelTarget != null) parcelTarget.gameObject.SetActive(false);
+        }
+
+        void LateUpdate()
+        {
+            if (!parcelOn || parcelRend == null) return;
+            float k = HintColors.Steady ? 0.75f : 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 1.4f * 2f * Mathf.PI);
+            var col = HintColors.Orange; col.a = Mathf.Lerp(0.12f, 0.55f, k);
+            parcelMpb ??= new MaterialPropertyBlock();
+            parcelRend.GetPropertyBlock(parcelMpb);
+            parcelMpb.SetColor(Shader.PropertyToID("_BaseColor"), col);
+            parcelRend.SetPropertyBlock(parcelMpb);
+        }
+
         void OnStamped(CustomerData c, bool approved)
         {
+            HideParcel();
             firstStampDone = true;
             // İlk onay: inşaat başladı, monitöre bakması gerektiğini göster
-            if (!approved || monitorShown || !FirstDay) return;
+            if (!approved || monitorShown || !FirstDay || GuidedTour.ActiveThisRun) return;
             monitorShown = true;
             if (!openedMonitor) Show(monitorGlow, true);
         }
@@ -184,6 +244,7 @@ namespace LoadBearing
             Show(mapGlow, false);
             Show(monitorGlow, false);
             Show(folderGlow, false);
+            HideParcel();
         }
 
         static void Show(HintGlow g, bool on)

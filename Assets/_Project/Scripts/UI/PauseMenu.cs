@@ -58,7 +58,8 @@ namespace LoadBearing
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
             if (gm == null || !gm.InDeskState) return;
-            if (fc != null && (fc.State != FocusState.Desk || fc.IsTransitioning)) return; // yakın bakışta Esc = geri
+            if (fc != null && fc.IsTransitioning) return;
+            if (fc != null && fc.State != FocusState.Desk && GuidedTour.AllowsBack) return; // yakın bakışta Esc = geri (ilk turda geri kapalı: menü açılır)
             StartCoroutine(Open());
         }
 

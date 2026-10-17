@@ -41,7 +41,8 @@ namespace LoadBearing
         CanvasGroup screenGroup;
         RawImage noise, flash;
         TextMeshProUGUI stripText, defectText, cardTitle, cardBody, cardHint;
-        RawImage cardBg;
+        RawImage cardBg, cardImg, cardDim;
+        TextMeshProUGUI cardCaption;
         Texture2D noiseTex;
         Color32[] noisePx;
         HintGlow monitorGlow, radioGlow;
@@ -52,7 +53,7 @@ namespace LoadBearing
         CustomerData radioVoice;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Instance = null; Results.Clear(); }
+        static void ResetStatics() { Instance = null; Results.Clear(); IntroOpen = false; }
 
         void Awake() => Instance = this;
 
@@ -98,8 +99,8 @@ namespace LoadBearing
             // ---- Telsiz
             string L = site != null ? site.letter.ToString() : "";
             string[] call = kind == Kind.Mixer
-                ? new[] { $"Şefim, {L} şantiyesinden arıyorum! Müteahhit malzemeden kaçıyor, mikserin bandına deniz kumu, deniz suyu karıştırmışlar!",
-                          "Monitöre geç, irsaliyede olmayanı banttan at. İnşaatı sen kurtaracaksın şefim!" }
+                ? new[] { $"Şefim, {L} şantiyesinden arıyorum! Müteahhit malzemeden kaçıyor, mikserin bandına çimentonun yanına deniz kumu karıştırmışlar!",
+                          "Monitöre geç, deniz kumu çuvallarını banttan at. İnşaatı sen kurtaracaksın şefim!" }
                 : new[] { $"Şefim, {L} şantiyesinde kolonları dökmeye başladık ama kalıplar sallanıyor, şakülünde değil!",
                           "Yarın deprem testi var! Monitörden bak, kolonları dimdik dök ki bina ayakta kalsın!" };
 
@@ -121,10 +122,9 @@ namespace LoadBearing
             screenOn = true;
             yield return Boot();
 
-            // ---- Başlık kartı: tıkla, başla
-            ShowCard(game.Title, game.Instructions, "BAŞLAMAK İÇİN TIKLA");
-            while (!(OnMonitor && Pressed(out _))) { Blink(cardHint); UpdateStrip(); yield return null; }
-            HideCard();
+            // ---- Tanıtım: ekran bulanıklaşır, ne yapılacağı tek bakışta; tıkla, başla
+            UpdateStrip();
+            yield return Intro();
 
             // ---- Oyun (sadece monitöre bakarken ilerler)
             playing = true;
@@ -148,22 +148,20 @@ namespace LoadBearing
             if (site != null) site.defects += defects;
             var gmr = GameManager.Instance;
             Results.Add(new Result { day = gmr != null ? gmr.Run.day : 0, title = kind == Kind.Mixer ? "Mikser kontrolü" : "Kolon dökümü", defects = defects, site = site != null ? site.letter : '?' });
-            ShowCard(defects == 0 ? "TEMİZ İŞ!" : $"KUSUR +{defects}", game.Summary +
-                     (defects == 0 ? "" : $"\n\nŞantiye {L} binasına {defects} kusur yazıldı."), "");
-            cardTitle.color = defects == 0 ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.42f, 0.35f);
-            for (float t = 0f; t < 1.2f; t += Time.deltaTime) { UpdateStrip(); yield return null; }
-            cardHint.text = "DEVAM ETMEK İÇİN TIKLA";
-            float wait = 0f;
-            while (!(OnMonitor && Pressed(out _)) && wait < 8f) { if (OnMonitor) wait += Time.deltaTime; Blink(cardHint); yield return null; }
+            // Sonuç ekranı (bulanık, tıkla devam)
+            yield return ShowResult(defects, L);
 
-            // ---- Ekran kapanışı, telsizden son söz
+            // ---- Monitör kapanır, kamera masaya döner, telsizden son söz (bu sırada sıradaki müşteri gelebilir)
             yield return Shutdown();
+            var fcb = FocusController.Instance;
+            if (fcb != null && fcb.State == FocusState.Monitor) fcb.Back();
             string end = defects == 0
                 ? (kind == Kind.Mixer ? "Eline sağlık şefim, beton tertemiz! Müteahhidin yüzü düştü ama bina sağlam."
                                       : "Kolonlar şakül gibi şefim! Deprem testinden alnımızın akıyla çıkarız.")
                 : (kind == Kind.Mixer ? "Biraz kaçırdık şefim... O beton pek iç açıcı değil, Allah korusun."
                                       : "Birkaç kolon eğri gitti şefim... Deprem olursa ne olur bilemem.");
-            yield return RadioLine(end);
+            StartCoroutine(RadioLine(end));
+            yield return new WaitForSeconds(0.6f);
 
             running = false;
             var cb = onDone;
@@ -176,6 +174,9 @@ namespace LoadBearing
             StopAllCoroutines();
             running = playing = false;
             screenOn = false;
+            IntroOpen = false;
+            var intro = transform.Find("MinigameIntro");
+            if (intro != null) Destroy(intro.gameObject);
             onDone = null;
             if (canvas != null) Destroy(canvas.gameObject);
             screenRoot = null;
@@ -398,15 +399,18 @@ namespace LoadBearing
             stripText = MgUI.Text(screenRoot, "", 42f, 0f, 1000f, 40f, 21f, new Color(0.875f, 0.906f, 0.925f));
             defectText = MgUI.Text(screenRoot, "", 1000f, 0f, 254f, 40f, 21f, new Color(0.875f, 0.906f, 0.925f), TextAlignmentOptions.MidlineRight);
 
-            // Bilgi kartı (başlık / sonuç)
-            cardBg = MgUI.Rect(screenRoot, new Color(0.04f, 0.05f, 0.06f, 0.88f), 240f, 170f, 800f, 380f);
-            cardTitle = MgUI.Text(screenRoot, "", 240f, 196f, 800f, 80f, 58f, Color.white, TextAlignmentOptions.Center);
-            cardTitle.fontStyle = FontStyles.Bold; cardTitle.characterSpacing = 6f;
-            cardBody = MgUI.Text(screenRoot, "", 290f, 280f, 700f, 190f, 25f, new Color(0.88f, 0.9f, 0.92f), TextAlignmentOptions.Center);
+            // Bilgi kartı (başlık / sonuç): arkası karartılır, kart opak, yazılar büyük ve az
+            cardDim = MgUI.Rect(screenRoot, new Color(0f, 0f, 0f, 0.6f), 0f, 40f, RtW, RtH - 40f);
+            cardBg = MgUI.Rect(screenRoot, new Color(0.06f, 0.07f, 0.08f, 0.97f), 190f, 110f, 900f, 520f);
+            cardTitle = MgUI.Text(screenRoot, "", 190f, 130f, 900f, 80f, 52f, Color.white, TextAlignmentOptions.Center);
+            cardTitle.fontStyle = FontStyles.Bold; cardTitle.characterSpacing = 4f;
+            cardBody = MgUI.Text(screenRoot, "", 240f, 230f, 800f, 250f, 34f, Color.white, TextAlignmentOptions.Center);
             cardBody.textWrappingMode = TextWrappingModes.Normal;
-            cardBody.lineSpacing = 12f;
-            cardHint = MgUI.Text(screenRoot, "", 240f, 480f, 800f, 50f, 26f, new Color(0.95f, 0.70f, 0.20f), TextAlignmentOptions.Center);
+            cardBody.lineSpacing = 8f;
+            cardHint = MgUI.Text(screenRoot, "", 190f, 560f, 900f, 50f, 30f, new Color(0.95f, 0.70f, 0.20f), TextAlignmentOptions.Center);
             cardHint.fontStyle = FontStyles.Bold;
+            cardImg = MgUI.Raw(screenRoot, null, 260f, 250f, 256f, 208f);
+            cardCaption = MgUI.Text(screenRoot, "", 230f, 480f, 316f, 40f, 28f, Color.white, TextAlignmentOptions.Center);
             HideCard();
 
             // Parazit ve beyaz parlama (açılış / kapanış)
@@ -496,27 +500,189 @@ namespace LoadBearing
             defectText.color = total > 0 ? new Color(0.949f, 0.757f, 0.306f) : new Color(0.875f, 0.906f, 0.925f);
         }
 
-        void ShowCard(string title, string body, string hint)
+        void ShowCard(string title, string body, string hint, string image = null, string caption = "")
         {
+            cardDim.gameObject.SetActive(true);
             cardBg.gameObject.SetActive(true);
             cardTitle.gameObject.SetActive(true); cardTitle.text = title; cardTitle.color = Color.white;
             cardBody.gameObject.SetActive(true); cardBody.text = body;
             cardHint.gameObject.SetActive(true); cardHint.text = hint;
+
+            // Görselli kart: büyük görsel solda, kısa yazı sağda
+            var tex = string.IsNullOrEmpty(image) ? null : MgUI.Tex(image);
+            bool withImage = tex != null;
+            cardImg.gameObject.SetActive(withImage);
+            cardCaption.gameObject.SetActive(withImage);
+            if (withImage)
+            {
+                cardImg.texture = tex;
+                float w = 256f, h = w * tex.height / Mathf.Max(1f, tex.width);
+                MgUI.Place(cardImg.rectTransform, 260f, 360f - h * 0.5f, w, h);
+                cardCaption.text = caption;
+                MgUI.Place(cardBody.rectTransform, 580f, 230f, 470f, 280f);
+                cardBody.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            else
+            {
+                MgUI.Place(cardBody.rectTransform, 240f, 230f, 800f, 280f);
+                cardBody.alignment = TextAlignmentOptions.Center;
+            }
         }
 
         void HideCard()
         {
             if (cardBg == null) return;
+            cardDim.gameObject.SetActive(false);
             cardBg.gameObject.SetActive(false);
             cardTitle.gameObject.SetActive(false);
             cardBody.gameObject.SetActive(false);
             cardHint.gameObject.SetActive(false);
+            if (cardImg != null) cardImg.gameObject.SetActive(false);
+            if (cardCaption != null) cardCaption.gameObject.SetActive(false);
         }
 
         static void Blink(TextMeshProUGUI t)
         {
             if (t == null) return;
             var c = t.color; c.a = 0.45f + 0.55f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 3f)); t.color = c;
+        }
+
+        // ------------------------------------------------------------------ tanıtım (ekran bulanık)
+
+        /// Tanıtım açıkken masa kontrolleri kapalı, imleç serbest
+        public static bool IntroOpen { get; private set; }
+        RenderTexture introRT;
+
+        IEnumerator Intro()
+        {
+            yield return Overlay((root, Label) =>
+            {
+                // Başlık (sarı) + tek cümle: "Bantta [görsel] görünce çıkart"
+                var title = Label(game.IntroTitle, 190f, 60f, new Color(0.95f, 0.70f, 0.20f), FontStyles.Bold);
+                title.characterSpacing = 3f;
+
+                const float rowY = -10f, rowSize = 46f, gap = 26f;
+                var before = Label(game.IntroBefore, rowY, rowSize, Color.white, FontStyles.Bold);
+                var after = Label(game.IntroAfter, rowY, rowSize, Color.white, FontStyles.Bold);
+                float wb = string.IsNullOrEmpty(game.IntroBefore) ? 0f : before.GetPreferredValues(game.IntroBefore).x;
+                float wa = string.IsNullOrEmpty(game.IntroAfter) ? 0f : after.GetPreferredValues(game.IntroAfter).x;
+                var vsize = game.IntroVisualSize;
+                float total = wb + gap + vsize.x + gap + wa;
+                float x0 = -total * 0.5f;
+                before.rectTransform.sizeDelta = new Vector2(wb + 4f, rowSize * 1.6f);
+                before.rectTransform.anchoredPosition = new Vector2(x0 + wb * 0.5f, rowY);
+                after.rectTransform.sizeDelta = new Vector2(wa + 4f, rowSize * 1.6f);
+                after.rectTransform.anchoredPosition = new Vector2(x0 + wb + gap + vsize.x + gap + wa * 0.5f, rowY);
+
+                var vis = new GameObject("Visual", typeof(RectTransform));
+                var vrt = (RectTransform)vis.transform;
+                vrt.SetParent(root, false);
+                vrt.anchorMin = vrt.anchorMax = new Vector2(0.5f, 0.5f);
+                vrt.sizeDelta = vsize;
+                vrt.anchoredPosition = new Vector2(x0 + wb + gap + vsize.x * 0.5f, rowY);
+                game.BuildIntroVisual(vrt);
+            }, "BAŞLATMAK İÇİN TIKLAYIN");
+        }
+
+        /// Oyun sonu: bulanık ekranda sonuç, tıklayınca devam
+        IEnumerator ShowResult(int defects, string siteLetter)
+        {
+            yield return Overlay((root, Label) =>
+            {
+                Label(defects == 0 ? "TEMİZ İŞ!" : $"KUSUR +{defects}", 200f, 72f,
+                      defects == 0 ? new Color(0.45f, 0.95f, 0.5f) : new Color(1f, 0.42f, 0.35f), FontStyles.Bold);
+                var body = Label(game.Summary, 10f, 40f, Color.white, FontStyles.Normal);
+                body.rectTransform.sizeDelta = new Vector2(1400f, 220f);
+                body.lineSpacing = 10f;
+                if (defects > 0) Label($"Şantiye {siteLetter} binasına yazıldı", -130f, 32f, new Color(0.95f, 0.70f, 0.20f), FontStyles.Normal);
+            }, "DEVAM ETMEK İÇİN TIKLAYIN");
+        }
+
+        /// Ekranı bulanıklaştırıp içerik gösterir, tıklayana (sol tık / Boşluk / Enter) kadar bekler
+        IEnumerator Overlay(System.Action<RectTransform, System.Func<string, float, float, Color, FontStyles, TextMeshProUGUI>> build, string hintText)
+        {
+            yield return new WaitForEndOfFrame();
+            var shot = ScreenCapture.CaptureScreenshotAsTexture();
+
+            var go = new GameObject("MinigameIntro", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup));
+            go.transform.SetParent(transform, false);
+            var cv = go.GetComponent<Canvas>();
+            cv.renderMode = RenderMode.ScreenSpaceOverlay;
+            cv.sortingOrder = 300;
+            var sc = go.GetComponent<CanvasScaler>();
+            sc.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            sc.referenceResolution = new Vector2(1920, 1080);
+            sc.matchWidthOrHeight = 0.5f;
+            var group = go.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            var root = (RectTransform)go.transform;
+
+            var bg = new GameObject("Blur", typeof(RectTransform), typeof(RawImage));
+            var bgrt = (RectTransform)bg.transform;
+            bgrt.SetParent(root, false);
+            bgrt.anchorMin = Vector2.zero; bgrt.anchorMax = Vector2.one; bgrt.offsetMin = bgrt.offsetMax = Vector2.zero;
+            var bgi = bg.GetComponent<RawImage>();
+            bgi.texture = Blur(shot);
+            bgi.color = new Color(0.32f, 0.32f, 0.32f, 1f);
+            if (shot != null) Destroy(shot);
+
+            TextMeshProUGUI Label(string text, float y, float size, Color c, FontStyles style)
+            {
+                var l = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+                var rt = (RectTransform)l.transform;
+                rt.SetParent(root, false);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(0f, y);
+                rt.sizeDelta = new Vector2(1700f, size * 1.6f);
+                var t = l.GetComponent<TextMeshProUGUI>();
+                t.text = text; t.fontSize = size; t.color = c; t.fontStyle = style;
+                t.alignment = TextAlignmentOptions.Center;
+                t.textWrappingMode = TextWrappingModes.NoWrap;
+                t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
+                t.raycastTarget = false;
+                return t;
+            }
+
+            build(root, Label);
+            var hint = Label(hintText, -260f, 34f, new Color(0.85f, 0.88f, 0.9f), FontStyles.Bold);
+
+            IntroOpen = true;
+            for (float t = 0f; t < 0.25f; t += Time.unscaledDeltaTime) { group.alpha = t / 0.25f; yield return null; }
+            group.alpha = 1f;
+
+            float wait = 0f;
+            while (true)
+            {
+                wait += Time.unscaledDeltaTime;
+                Blink(hint);
+                var m = Mouse.current; var kb = Keyboard.current;
+                bool click = (m != null && m.leftButton.wasPressedThisFrame) ||
+                             (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame));
+                if (wait > 0.4f && click && !PauseMenu.IsPaused) break;
+                yield return null;
+            }
+            for (float t = 0f; t < 0.2f; t += Time.unscaledDeltaTime) { group.alpha = 1f - t / 0.2f; yield return null; }
+            Destroy(go);
+            yield return null; // tıklama oyunda / masada sayılmasın
+            IntroOpen = false;
+        }
+
+        Texture Blur(Texture2D shot)
+        {
+            if (shot == null) return null;
+            RenderTexture Temp(int w, int h) { var r = RenderTexture.GetTemporary(Mathf.Max(1, w), Mathf.Max(1, h), 0); r.filterMode = FilterMode.Bilinear; return r; }
+            var cur = Temp(shot.width / 2, shot.height / 2);
+            Graphics.Blit(shot, cur);
+            for (int i = 0; i < 4; i++) { var n = Temp(cur.width / 2, cur.height / 2); Graphics.Blit(cur, n); RenderTexture.ReleaseTemporary(cur); cur = n; }
+            for (int i = 0; i < 3; i++) { var n = Temp(cur.width * 2, cur.height * 2); Graphics.Blit(cur, n); RenderTexture.ReleaseTemporary(cur); cur = n; }
+            if (introRT == null || introRT.width != cur.width || introRT.height != cur.height)
+            {
+                if (introRT != null) { introRT.Release(); Destroy(introRT); }
+                introRT = new RenderTexture(cur.width, cur.height, 0) { filterMode = FilterMode.Bilinear };
+            }
+            Graphics.Blit(cur, introRT);
+            RenderTexture.ReleaseTemporary(cur);
+            return introRT;
         }
 
         // ------------------------------------------------------------------ yardımcılar

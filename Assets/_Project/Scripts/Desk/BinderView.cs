@@ -74,6 +74,7 @@ namespace LoadBearing
         }
 
         RawImage pageArt;
+        public RectTransform PageArtRect => pageArt != null && pageArt.enabled ? pageArt.rectTransform : null;
 
         /// Tasarımcının sayfa görselleri (T_RulePage_01-04) için tam sayfa resim alanı
         void EnsurePageArt()
@@ -223,6 +224,69 @@ namespace LoadBearing
             closedModel.SetActive(!open);
         }
 
+        /// Başlığında key geçen kural sayfasını aç (belgedeki kısayol: "kat", "zemin")
+        public void JumpTo(string key)
+        {
+            if (string.IsNullOrEmpty(key) || pages.Count == 0 || flipping) return;
+            var tr = new System.Globalization.CultureInfo("tr-TR");
+            for (int i = 0; i < pages.Count; i++)
+            {
+                string t = (pages[i].title ?? "").ToLower(tr);
+                if (!t.Contains(key)) continue;
+                if (i != index) { index = i; ShowPage(); }
+                return;
+            }
+        }
+
+        /// Oyundan çıkarılan kurallar: mühendis kaşesi (İMO sicil no) kuralı artık yok
+        public static bool Removed(RuleData r)
+        {
+            if (r == null) return true;
+            var tr = new System.Globalization.CultureInfo("tr-TR");
+            string t = (r.title ?? "").ToLower(tr);
+            return r.name.Contains("Kase") || t.Contains("kaşe") || t.Contains("sicil");
+        }
+
+        // ------------------------------------------------------------------ birleşik kural sayfası (tasarımcı, 17 Ekim)
+
+        static readonly string[] MergedIds = { "1_Konum", "2_KatSiniri", "4_Zemin" };
+        static RuleData merged12, merged123;
+
+        static bool IsMergedRule(RuleData r) => r != null && System.Array.IndexOf(MergedIds, r.id) >= 0;
+
+        static RuleData MergedPage(bool withSoil)
+        {
+            var cached = withSoil ? merged123 : merged12;
+            if (cached != null) return cached;
+            var tex = Resources.Load<Texture2D>(withSoil ? "RuleBook/T_RulePage_Merged_1-2-3" : "RuleBook/T_RulePage_Merged_1-2");
+            if (tex == null) return null;
+            var r = ScriptableObject.CreateInstance<RuleData>();
+            r.name = withSoil ? "Rule_Merged_1-2-3" : "Rule_Merged_1-2";
+            r.id = withSoil ? "M_123" : "M_12";
+            r.title = withSoil ? "Yasak bölgeler · Kat sınırı · Zemin etüdü" : "Yasak bölgeler · Kat sınırı";
+            r.body = "";
+            r.dayIntroduced = withSoil ? 2 : 1;
+            r.pageTexture = tex;
+            if (withSoil) merged123 = r; else merged12 = r;
+            return r;
+        }
+
+        /// Yasak bölgeler + kat sınırı (+ zemin etüdü) tek sayfada. Görsel yoksa eski sayfalar kalır.
+        void MergePages()
+        {
+            int first = pages.FindIndex(IsMergedRule);
+            if (first < 0) return;
+            bool withSoil = pages.Exists(r => r != null && r.id == "4_Zemin");
+            var page = MergedPage(withSoil);
+            if (page == null) return;
+            bool isNew = false;
+            foreach (var r in pages) if (IsMergedRule(r) && newToday.Contains(r)) isNew = true;
+            newToday.RemoveWhere(IsMergedRule);
+            pages.RemoveAll(IsMergedRule);
+            pages.Insert(Mathf.Min(first, pages.Count), page);
+            if (isNew) newToday.Add(page);
+        }
+
         public void Rebuild(int day)
         {
             pages.Clear();
@@ -235,12 +299,14 @@ namespace LoadBearing
                     if (d == null || d.dayNumber > day || d.newRulePages == null) continue;
                     foreach (var r in d.newRulePages)
                     {
-                        if (r == null || pages.Contains(r)) continue;
+                        if (r == null || pages.Contains(r) || Removed(r)) continue;
                         pages.Add(r);
                         if (day >= 2 && d.dayNumber == day) newToday.Add(r);
                     }
                 }
             }
+
+            MergePages();
 
             // Yeni sayfa varsa klasör ilk yeni sayfada açılsın
             index = 0;

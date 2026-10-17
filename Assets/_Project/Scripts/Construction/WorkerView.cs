@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace LoadBearing
 {
@@ -32,11 +35,136 @@ namespace LoadBearing
         static readonly Color Steel = new Color(0.62f, 0.64f, 0.66f);
         static readonly Color Spark = new Color(1f, 0.85f, 0.30f);
 
+        // ------------------------------------------------------------------ 3D işçi modeli (tasarımcı paketi)
+
+        static readonly string[] Names = { "Huseyin", "Kemal", "Murat", "Cengiz", "Ali" };
+        // Sadece yerinde oynayan klipler (Walk / Run / Work_Carry yürür: ilerlemeyi kod vermeli, burada kullanılmaz)
+        static readonly string[] WorkClips = { "Work_Shovel", "Work_Rebar" };
+        static readonly string[] SlackClips = { "Slack_Sit", "Slack_Phone", "Slack_Tea", "Slack_Fanta" };
+        static Material workerMat;
+        const float ModelScale = 0.15f; // ~2 m (baretli) -> kutu figür boyu (~0.3 birim)
+
+        Dictionary<string, AnimationClip> clips;
+        PlayableGraph graph;
+        AnimationPlayableOutput output;
+        string playing;
+
+        /// Tasarımcının işçi modelini kur (Resources/Workers). Yoksa false: eski kutu figür kalır.
+        bool BuildModel(int idx)
+        {
+            string name = "Workers/SK_Worker_" + Names[idx % Names.Length];
+            var prefab = Resources.Load<GameObject>(name);
+            if (prefab == null) return false;
+
+            var go = Instantiate(prefab, transform);
+            go.name = "Model";
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one * ModelScale;
+            foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = gameObject.layer;
+
+            if (workerMat == null)
+            {
+                var sh = Shader.Find("Universal Render Pipeline/Lit");
+                workerMat = new Material(sh != null ? sh : lit.shader) { name = "M_Workers (runtime)" };
+                var pal = Resources.Load<Texture2D>("Workers/T_Workers_Palette");
+                if (pal != null) { workerMat.SetTexture("_BaseMap", pal); workerMat.mainTexture = pal; }
+                workerMat.SetColor("_BaseColor", Color.white);
+                if (workerMat.HasProperty("_Smoothness")) workerMat.SetFloat("_Smoothness", 0.1f);
+            }
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = workerMat;
+                r.sharedMaterials = mats;
+                if (r is SkinnedMeshRenderer smr) smr.updateWhenOffscreen = true;
+            }
+
+            clips = new Dictionary<string, AnimationClip>();
+            foreach (var c in Resources.LoadAll<AnimationClip>(name))
+            {
+                if (c == null || c.name.StartsWith("__preview__")) continue;
+                string key = c.name.Contains("|") ? c.name.Substring(c.name.LastIndexOf('|') + 1) : c.name;
+                clips[key] = c;
+            }
+
+            var anim = go.GetComponent<Animator>();
+            if (anim == null) anim = go.AddComponent<Animator>();
+            anim.applyRootMotion = false;
+            anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            graph = PlayableGraph.Create("Worker_" + idx);
+            graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+            output = AnimationPlayableOutput.Create(graph, "Anim", anim);
+            Play(WorkClips[idx % WorkClips.Length]);
+            graph.Play();
+            return true;
+        }
+
+        void Play(string clipName)
+        {
+            if (clips == null || playing == clipName) return;
+            if (!clips.TryGetValue(clipName, out var clip) && !clips.TryGetValue("Idle", out clip)) return;
+            var prev = output.GetSourcePlayable();
+            var p = AnimationClipPlayable.Create(graph, clip);
+            p.SetTime(Random.value * clip.length); // işçiler aynı anda aynı hareketi yapmasın
+            output.SetSourcePlayable(p);
+            if (prev.IsValid()) prev.Destroy();
+            playing = clipName;
+            ShowFanta(clipName == "Slack_Fanta");
+        }
+
+        GameObject fanta;
+
+        /// Gazoz molası: işçinin sağ önüne 2,5 lt şişe + yere pet bardak (tasarımcı: 0,3–0,5 m yanında)
+        void ShowFanta(bool on)
+        {
+            if (!on) { if (fanta != null) fanta.SetActive(false); return; }
+            if (fanta == null)
+            {
+                fanta = new GameObject("Fanta");
+                fanta.transform.SetParent(transform, false);
+                Prop("Workers/SM_Fanta_2L5", new Vector3(0.40f, 0f, 0.22f), 15f);
+                Prop("Workers/SM_PetBardak", new Vector3(0.30f, 0f, 0.36f), 0f);
+            }
+            fanta.SetActive(true);
+        }
+
+        void Prop(string res, Vector3 metres, float yaw)
+        {
+            var prefab = Resources.Load<GameObject>(res);
+            if (prefab == null) return;
+            var go = Instantiate(prefab, fanta.transform);
+            go.transform.localPosition = metres * ModelScale; // model ölçeğinde (1 m = 0.15 birim)
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            go.transform.localScale = Vector3.one * ModelScale;
+            foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = gameObject.layer;
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = workerMat;
+                r.sharedMaterials = mats;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (graph.IsValid()) graph.Destroy();
+        }
+
         public void Build(int idx, Material litMat, Material unlitMat)
         {
             index = idx;
             lit = litMat; unlit = unlitMat;
             phase = Random.value * 10f;
+
+            if (BuildModel(idx))
+            {
+                // Tıklama kutusu (model boyunda)
+                var c = gameObject.AddComponent<BoxCollider>();
+                c.center = new Vector3(0f, 0.15f, 0f);
+                c.size = new Vector3(0.16f, 0.32f, 0.16f);
+                return;
+            }
 
             // Ölçüler: figür ~0.3 birim boyunda
             Box("LegL", transform, new Vector3(-0.025f, 0.05f, 0f), new Vector3(0.035f, 0.10f, 0.04f), Pants);
@@ -67,6 +195,9 @@ namespace LoadBearing
             for (int i = 1; i < props.Length; i++) if (props[i] != null) props[i].SetActive(i == type);
             if (type > 0 && type < props.Length && props[type] == null) props[type] = BuildProp(type);
             if (armR != null) armR.gameObject.SetActive(type == 0 || type == 3); // hatalıyken çekiç yok
+            // 3D model: düzgün işçi çalışır, hatalı işçi kaytarır (oturur / telefonda / çay içer)
+            if (clips != null)
+                Play(type == 0 ? WorkClips[index % WorkClips.Length] : SlackClips[(index + type) % SlackClips.Length]);
         }
 
         GameObject BuildProp(int type)

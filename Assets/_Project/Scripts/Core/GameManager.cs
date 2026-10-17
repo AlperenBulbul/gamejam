@@ -33,7 +33,7 @@ namespace LoadBearing
         /// Masaya bakma / tıklama sadece bu durumlarda açık (menü, fiş, dükkân vb. ekranlarda kapalı)
         public bool InDeskState => State == GameState.DayIntro || State == GameState.Working || State == GameState.FinalShift;
         /// Masa kontrolleri açık mı (masa durumunda ve oyun duraklatılmamış)
-        public bool DeskInputEnabled => InDeskState && !PauseMenu.IsPaused;
+        public bool DeskInputEnabled => InDeskState && !PauseMenu.IsPaused && !MinigameDirector.IntroOpen && !EndScreenUI.Blocking;
 
         void Awake()
         {
@@ -43,6 +43,8 @@ namespace LoadBearing
             if (config == null) Debug.LogError("[GM] GameConfig atanmamış! Systems > GameManager'a GameConfig.asset'i sürükle.");
             if (GetComponent<ConstructionManager>() == null) gameObject.AddComponent<ConstructionManager>(); // şantiyeler
             if (GetComponent<TutorialHints>() == null) gameObject.AddComponent<TutorialHints>();             // ilk tur göstergeleri
+            if (GetComponent<GuidedTour>() == null) gameObject.AddComponent<GuidedTour>();                   // hazır oynatılan ilk tur
+            if (GetComponent<DeskMug>() == null) gameObject.AddComponent<DeskMug>();                         // masadaki ODTÜ kupası
             if (GetComponent<PauseMenu>() == null) gameObject.AddComponent<PauseMenu>();                     // Esc: duraklatma menüsü
             if (GetComponent<MinigameDirector>() == null) gameObject.AddComponent<MinigameDirector>();       // gün sonu monitör minigame'i
             if (GetComponent<EndScreenUI>() == null) gameObject.AddComponent<EndScreenUI>();                 // gün geçişi + bitiş ekranı

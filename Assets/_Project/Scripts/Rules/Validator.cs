@@ -20,7 +20,7 @@ namespace LoadBearing
 
             if (day >= 2)
             {
-                if (Array.IndexOf(cfg.registry, c.licenseNo) < 0) return $"Ruhsat no sicilde yok ({c.licenseNo})";
+                // Mühendis kaşesi (İMO sicil) kuralı oyundan çıkarıldı
                 if (c.floors >= 5 && c.soil != SoilType.Solid) return "5+ kat için sağlam zemin etüdü yok";
             }
             return null;

@@ -135,7 +135,11 @@ namespace LoadBearing
 
         void OnTransition(FocusState from, FocusState to)
         {
-            if (from == FocusState.Map) active = false;
+            if (from == FocusState.Map)
+            {
+                active = false;
+                if (overlayOn) SetOverlay(false, true); // haritadan çıkınca tehlikeli bölge katmanı geri kalkar
+            }
         }
 
         public void ToggleOverlay()
