@@ -277,7 +277,7 @@ namespace LoadBearing.EditorTools
             // Revize/<paket>/Assets/Art klasörlerini bul (paket adı değişebilir)
             var artDirs = Directory.GetDirectories(src, "Art", SearchOption.AllDirectories)
                                    .Where(d => Path.GetFileName(Path.GetDirectoryName(d)) == "Assets")
-                                   .OrderBy(d => File.GetLastWriteTimeUtc(d)).ThenBy(d => d, System.StringComparer.Ordinal) // eski paket önce, yenisi üzerine yazar
+                                   .OrderBy(NewestFile).ThenBy(d => d, System.StringComparer.Ordinal) // eski paket önce, yenisi üzerine yazar
                                    .ToList();
             if (artDirs.Count == 0) { log.Add($"{src} içinde Assets/Art yok"); return false; }
 
@@ -297,6 +297,18 @@ namespace LoadBearing.EditorTools
             AssetDatabase.Refresh();
             log.Add($"{n} dosya Assets/Art'a kopyalandı");
             return true;
+        }
+
+        /// Paketin en yeni dosyasının tarihi (klasör tarihleri açarken değişebildiği için dosyalara bakılır)
+        static System.DateTime NewestFile(string dir)
+        {
+            var t = System.DateTime.MinValue;
+            foreach (var f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+            {
+                var w = File.GetLastWriteTimeUtc(f);
+                if (w > t) t = w;
+            }
+            return t;
         }
 
         // ------------------------------------------------------------------ sahne
