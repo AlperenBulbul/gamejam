@@ -67,12 +67,14 @@ namespace LoadBearing
                 if (hovered != null) hovered.SetHighlight(true);
             }
 
-            bool click = mouse.leftButton.wasPressedThisFrame && Time.frameCount != CursorController.LockClickFrame;
+            bool click = mouse.leftButton.wasPressedThisFrame && Time.frameCount != CursorController.LockClickFrame
+                         && Time.frameCount - PauseMenu.LastToggleFrame > 1; // "Devam et" tıklaması masaya geçmesin
             if (hovered != null && click)
                 hovered.Click();
 
-            bool back = mouse.rightButton.wasPressedThisFrame ||
-                        (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame);
+            // Esc: yakın bakışta geri, masada duraklatma menüsü (PauseMenu)
+            bool esc = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && fc != null && fc.State != FocusState.Desk;
+            bool back = mouse.rightButton.wasPressedThisFrame || esc;
             if (back && fc != null)
             {
                 // Açık dosyada mühür elindeyse sağ tık önce mührü bırakır

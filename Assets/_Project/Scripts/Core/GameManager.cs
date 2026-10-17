@@ -31,7 +31,9 @@ namespace LoadBearing
         public bool IsLastDay => Run.day >= days.Length;
 
         /// Masaya bakma / tıklama sadece bu durumlarda açık (menü, fiş, dükkân vb. ekranlarda kapalı)
-        public bool DeskInputEnabled => State == GameState.DayIntro || State == GameState.Working || State == GameState.FinalShift;
+        public bool InDeskState => State == GameState.DayIntro || State == GameState.Working || State == GameState.FinalShift;
+        /// Masa kontrolleri açık mı (masa durumunda ve oyun duraklatılmamış)
+        public bool DeskInputEnabled => InDeskState && !PauseMenu.IsPaused;
 
         void Awake()
         {
@@ -41,6 +43,7 @@ namespace LoadBearing
             if (config == null) Debug.LogError("[GM] GameConfig atanmamış! Systems > GameManager'a GameConfig.asset'i sürükle.");
             if (GetComponent<ConstructionManager>() == null) gameObject.AddComponent<ConstructionManager>(); // şantiyeler
             if (GetComponent<TutorialHints>() == null) gameObject.AddComponent<TutorialHints>();             // ilk tur göstergeleri
+            if (GetComponent<PauseMenu>() == null) gameObject.AddComponent<PauseMenu>();                     // Esc: duraklatma menüsü
             NewRun();
         }
 

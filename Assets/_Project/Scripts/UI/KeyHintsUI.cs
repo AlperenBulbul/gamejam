@@ -248,8 +248,8 @@ namespace LoadBearing
                     return new[] { ("Sol tık dosya", "Mühür bas"), ("Sağ tık", "Mührü bırak") };
                 default: // Desk
                     return state == GameState.DayIntro
-                        ? new[] { ("Fare", "Etrafa bak"), ("Gazete", "Oku ve güne başla") }
-                        : new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver") };
+                        ? new[] { ("Fare", "Etrafa bak"), ("Gazete", "Oku ve güne başla"), ("Esc", "Duraklat") }
+                        : new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver"), ("Esc", "Duraklat") };
             }
         }
 
