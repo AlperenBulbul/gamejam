@@ -317,7 +317,7 @@ namespace LoadBearing
 
         // ------------------------------------------------------------------ mühürden sonra müşteriye dön
 
-        const float AutoReturnDelay = 2f;
+        const float AutoReturnDelay = 0.8f; // mühür izini görsün, sonra müşterinin tepkisine dön
 
         void OnStamped(CustomerData c, bool approved)
         {

@@ -28,6 +28,14 @@ namespace LoadBearing
         public bool bribeTakenCurrent;   // şu anki müşterinin zarfı alındı mı
         public string bribeOnApproved;   // rüşveti alınıp onaylanan müşterinin id'si (C7)
 
+        // Kurallar (GDD v3.2 Eki): sayaçlar iki günü kapsar, kovulma gün sonu denetiminde
+        public int faultLineApprovals;
+        public int floodApprovals;
+        public int bribeTakenDay;                 // zarfın alındığı gün (0 = alınmadı)
+        public List<string> wrongApprovalIds = new List<string>();
+        public List<WrongApproval> wrongApprovalTypes = new List<WrongApproval>();
+        public FireReason fireReason = FireReason.None;
+
         // Sonlar
         public bool jailed;
         public bool collapseFired;
@@ -49,14 +57,14 @@ namespace LoadBearing
             penalties++;
             penaltyReasons.Add(reason);
             GameEvents.RaisePenaltyAdded(reason);
-            if (penalties >= cfg.penaltyLimit) pendingFired = true;
+            // Kovulma anında değil: gün sonu denetiminde (EndingRules.Inspect)
         }
 
         public void AddWrongfulReject(GameConfig cfg)
         {
             wrongfulRejects++;
             GameEvents.RaiseWrongfulReject();
-            if (wrongfulRejects >= cfg.wrongfulRejectLimit) pendingFired = true;
+            // Kovulma anında değil: gün sonu denetiminde (EndingRules.Inspect)
         }
     }
 }

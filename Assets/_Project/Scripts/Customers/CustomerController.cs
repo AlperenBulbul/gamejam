@@ -40,6 +40,10 @@ namespace LoadBearing
         public float standBack = 0f;
         [Tooltip("Onay alınca sevinç animasyonu kaç saniye sürsün (0 = varsayılan)")]
         public float happySeconds = 0f;
+        [Tooltip("Konuşma animasyonu altyazıdan sonra kaç saniye daha sürsün (uzun konuşma)")]
+        public float talkHold = 0f;
+        [Tooltip("Reddedilince kendi tepki animasyonu (Sad durumu) kaç saniye oynasın (0 = kısa sallanma)")]
+        public float rejectSeconds = 0f;
 
         [Header("Animasyon (karakter modeli)")]
         [Tooltip("Boşsa çocuklarda aranır. Greybox gövdede yoktur.")]
@@ -197,6 +201,13 @@ namespace LoadBearing
             // Tepki (sinirli çıkışta tepki yok, direkt gider)
             if (!angryExit)
             {
+                // Mühürden sonra kamera müşteriye dönünce başlasın (belgeye bakarken kaçmasın)
+                for (float w = 0f; w < 3f; w += Time.deltaTime)
+                {
+                    var fcw = FocusController.Instance;
+                    if (fcw == null || (fcw.State != FocusState.Folder && !fcw.IsTransitioning)) break;
+                    yield return null;
+                }
                 Current = Phase.Reacting;
                 Say(approved ? Data.approveLine : Data.rejectLine);
                 yield return approved ? Hop() : Shake();
@@ -327,7 +338,7 @@ namespace LoadBearing
             if (string.IsNullOrEmpty(line)) return;
             var cfg = GameManager.Instance != null ? GameManager.Instance.Config : null;
             float cps = cfg != null ? Mathf.Max(5f, cfg.speechCps) : 30f;
-            talkUntil = Time.time + line.Length / cps + 0.4f; // altyazı yazıldığı sürece konuşur
+            talkUntil = Time.time + line.Length / cps + 0.4f + talkHold; // altyazı yazıldığı sürece (+ karakterin ek süresi) konuşur
             if (SpeechSystem.Instance != null) SpeechSystem.Instance.Say(Data, line, Stage); // altyazı + mırıltı
             Debug.Log($"[Müşteri] {Data.displayName} ({Stage}): {line}");
         }
@@ -386,7 +397,9 @@ namespace LoadBearing
 
         IEnumerator Shake()
         {
-            if (hasReact) { yield return new WaitForSeconds(Mathf.Max(reactTime, 2.2f)); yield break; } // üzülme animasyonu var
+            if (hasReact) { yield return new WaitForSeconds(Mathf.Max(reactTime, rejectSeconds, 2.2f)); yield break; } // üzülme animasyonu var
+            if (rejectSeconds > 0f && animator != null && animator.HasState(0, Animator.StringToHash("Sad")))
+            { yield return new WaitForSeconds(rejectSeconds); yield break; }                          // reddedilince kendi tepkisi (tartışma / kızma)
             for (float t = 0f; t < reactTime; t += Time.deltaTime)
             {
                 float k = t / reactTime;

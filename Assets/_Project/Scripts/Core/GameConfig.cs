@@ -40,6 +40,11 @@ namespace LoadBearing
 
         [Header("Kurallar")]
         public int penaltyLimit = 3;
+        [Header("Sonlar (GDD v3.2 Eki)")]
+        public int faultLineFireLimit = 2;      // toplam fay hattı onayı: gün sonunda kovulma
+        public int floodFireLimit = 2;          // toplam taşkın alanı onayı: gün sonunda kovulma
+        public int happyMaxSmallMistakes = 1;   // Kimse Ölmedi için en fazla küçük hata
+        public int defectDamage = 3;            // bu kusurdan itibaren bina depremde hasarlı (çökmez)
         public int wrongfulRejectLimit = 3;
         public FloorLimitRule[] floorLimits =
         {

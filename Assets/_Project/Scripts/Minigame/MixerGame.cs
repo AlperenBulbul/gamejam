@@ -5,32 +5,36 @@ using UnityEngine.UI;
 
 namespace LoadBearing
 {
-    /// 1. gün minigame'i: Mikser bandı.
-    /// Bant malzemeleri mikserin hunisine taşır. İrsaliyede olanlar (çimento, dere kumu, çakıl, şebeke suyu) girmeli;
-    /// müteahhidin araya kattığı deniz kumu (kırmızı etiketli çuval) tıklanıp banttan atılmalı.
-    ///  - Tuzak huniye girerse: KUSUR +1
-    ///  - Doğru malzeme atılırsa (eksik malzeme): KUSUR +1
+    /// 1. gün minigame'i: Mikser bandı — betonu doğru karıştır.
+    /// Tarif (sağ üstte simge + sayı): 1 çimento, 2 dere kumu, 3 çakıl, 1 su. Bant bunları ve fazlasını getirir.
+    /// Oyuncu tarifte olanları miksere bırakır, gerisini (deniz kumu ve fazla malzeme) tıklayıp banttan atar.
+    ///  - Deniz kumu ya da fazla malzeme miksere girerse: HATA +1
+    ///  - Bant bitince tarifte eksik kalan her malzeme: HATA +1
     /// Yerleşim tasarımcının OKU_BENI_Santiye.md tablosundan (1280 × 720, sol üst köşeler).
     public class MixerGame : MgGame
     {
         const float BeltY = 308f;        // eşyaların altı (bant yüzeyi)
         const float EndX = 927f;         // "geri dönüş yok" çizgisi
         const float HopperX = 887f, HopperY = 268f;
-        const int Count = 14, Traps = 5;
+        const int Traps = 3;
 
         class Spec
         {
             public string tex, label;
             public bool trap, liquid;
+            public int need;          // tarifte kaç tane (0 = tarifte yok)
         }
 
+        // Beton tarifi (1 çimento : 2 kum : 3 çakıl + su)
         static readonly Spec[] Good =
         {
-            new Spec { tex = "SPR_Item_Cement", label = "Çimento" },
-            new Spec { tex = "SPR_Item_RiverSand", label = "Dere kumu" },
-            new Spec { tex = "SPR_Item_Gravel", label = "Çakıl" },
-            new Spec { tex = "SPR_Item_CityWater", label = "Su", liquid = true },
+            new Spec { tex = "SPR_Item_Cement", label = "Çimento", need = 1 },
+            new Spec { tex = "SPR_Item_RiverSand", label = "Dere kumu", need = 2 },
+            new Spec { tex = "SPR_Item_Gravel", label = "Çakıl", need = 3 },
+            new Spec { tex = "SPR_Item_CityWater", label = "Su", liquid = true, need = 1 },
         };
+        // Tarifin fazlası (banttan atılmalı)
+        static readonly int[] Extra = { 1, 0, 1, 1 };
         static readonly Spec[] Bad =
         {
             new Spec { tex = "SPR_Item_SeaSand", label = "Deniz kumu", trap = true }, // tek tuzak: deniz kumu
@@ -52,23 +56,53 @@ namespace LoadBearing
         readonly List<Item> items = new List<Item>();
         RectTransform itemLayer;
         RawImage belt;
-        float beltOffset, speed = 140f, nextGap, sinceSpawn;
-        int spawned, trapsIn, goodTossed, trapsCaught;
+        float beltOffset, speed = 170f, nextGap, sinceSpawn;
+        int spawned, trapsIn, goodTossed, trapsCaught, extraIn, missing;
+        readonly int[] have = new int[4];
+        readonly TextMeshProUGUI[] haveText = new TextMeshProUGUI[4];
+        readonly RawImage[] haveIcon = new RawImage[4];
+        int Needed { get { int n = 0; foreach (var g in Good) n += g.need; return n; } }
+        int Correct { get { int n = 0; for (int i = 0; i < Good.Length; i++) n += Mathf.Min(have[i], Good[i].need); return n; } }
 
         public override string Title => "MİKSER KONTROLÜ";
         public override string Instructions =>
-            "Bu çuvalı görünce\n<b><color=#F2B233>TIKLA</color></b>\n\n<size=75%><color=#B8C0C8>Diğerlerine dokunma</color></size>";
+            "Tarifteki malzemeyi\n<b><color=#F2B233>TOPLA</color></b>\n\n<size=75%><color=#B8C0C8>Gerisini tıklayıp at</color></size>";
         public override string CardImage => "SPR_Item_SeaSand";
-        public override string IntroTitle => "MÜTEAHHİT MALZEMEDEN ÇALIYOR!";
-        public override string IntroBefore => "Bantta";
-        public override string IntroAfter => "görünce çıkart";
+        public override string IntroTitle => "Betonu doğru karıştır";
+        public override string IntroBefore => "Topla:";
+        public override string IntroAfter => "gerisini banttan at";
+        public override Vector2 IntroVisualSize => new Vector2(4 * 128f, 110f);
+
+        /// Tarif: her malzemenin simgesi ve altında sayısı
+        public override void BuildIntroVisual(RectTransform parent)
+        {
+            for (int i = 0; i < Good.Length; i++)
+            {
+                float x = -IntroVisualSize.x * 0.5f + 64f + i * 128f;
+                var tex = MgUI.Tex(Good[i].tex);
+                var ic = new GameObject("I", typeof(RectTransform), typeof(RawImage));
+                var irt = (RectTransform)ic.transform; irt.SetParent(parent, false);
+                float k = tex != null ? Mathf.Min(96f / tex.width, 74f / tex.height) : 1f;
+                irt.sizeDelta = tex != null ? new Vector2(tex.width * k, tex.height * k) : new Vector2(80f, 64f);
+                irt.anchoredPosition = new Vector2(x, 16f);
+                var ri = ic.GetComponent<RawImage>(); ri.texture = tex; ri.raycastTarget = false;
+                var t = new GameObject("N", typeof(RectTransform), typeof(TextMeshProUGUI));
+                var trt = (RectTransform)t.transform; trt.SetParent(parent, false);
+                trt.sizeDelta = new Vector2(120f, 44f);
+                trt.anchoredPosition = new Vector2(x, -44f);
+                var tm = t.GetComponent<TextMeshProUGUI>();
+                tm.text = Good[i].need.ToString(); tm.fontSize = 40f; tm.fontStyle = FontStyles.Bold;
+                tm.color = new Color(0.95f, 0.70f, 0.20f); tm.alignment = TextAlignmentOptions.Center; tm.raycastTarget = false;
+            }
+        }
         public override string CardImageCaption => "<color=#FF5A4A><b>DENİZ KUMU = YASAK</b></color>";
         public override string Strip => $"{SiteLabel}   {(site != null ? site.StepLabel.ToUpper(new System.Globalization.CultureInfo("tr-TR")) : "")}   BETON KARIŞIMI";
         public override string Summary =>
+            $"Doğru karışım: <b>{Correct} / {Needed}</b>\n" +
             $"Ayıklanan deniz kumu: <b>{trapsCaught} / {Traps}</b>\n" +
-            $"Miksere kaçan: <b>{trapsIn}</b>\n" +
-            $"Yanlış atılan: <b>{goodTossed}</b>";
-        public override (string key, string action)[] Hints => new[] { ("Sol tık", "Deniz kumunu banttan at"), ("Sağ tık / Esc", "Geri") };
+            $"Miksere giren fazlalık: <b>{trapsIn + extraIn}</b>";
+        public override int Score => 100 - Defects * 15;
+        public override (string key, string action)[] Hints => new[] { ("Sol tık", "Fazla malzemeyi banttan at"), ("Sağ tık / Esc", "Geri") };
 
         protected override void Build()
         {
@@ -84,28 +118,33 @@ namespace LoadBearing
             itemLayer = MgUI.Group(root, "Items");
             MgUI.Raw(root, MgUI.Tex("SPR_Mixer_Mouth_Front"), HopperX, HopperY);
 
-            // İrsaliye
+            // Tarif kartı (irsaliye): simge + toplanan / gereken
             var wb = MgUI.Raw(root, MgUI.Tex("UI_Waybill"), 862f, 62f).transform;
             var ink = new Color(0.17f, 0.15f, 0.13f);
-            var title = MgUI.Text(wb, "İRSALİYE", 22f, 6f, 200f, 34f, 26f, ink);
+            var title = MgUI.Text(wb, "TARİF", 22f, 6f, 200f, 34f, 26f, ink);
             title.fontStyle = FontStyles.Bold; title.characterSpacing = 6f;
-            MgUI.Text(wb, "No 0417", 230f, 8f, 110f, 30f, 16f, ink, TextAlignmentOptions.MidlineRight);
-            float[] rows = { 66f, 92f, 118f, 144f };
             for (int i = 0; i < Good.Length; i++)
             {
-                MgUI.Text(wb, "· " + Good[i].label, 26f, rows[i] - 24f, 220f, 24f, 19f, ink).fontStyle = FontStyles.Bold;
-                MgUI.Text(wb, "1 ad.", 250f, rows[i] - 24f, 90f, 24f, 18f, ink, TextAlignmentOptions.MidlineRight);
+                var tex = MgUI.Tex(Good[i].tex);
+                float k = tex != null ? Mathf.Min(70f / tex.width, 58f / tex.height) : 1f;
+                float w = tex != null ? tex.width * k : 64f, h = tex != null ? tex.height * k : 52f;
+                float cx = 52f + i * 84f;
+                haveIcon[i] = MgUI.Raw(wb, tex, cx - w * 0.5f, 98f - h, w, h);
+                haveText[i] = MgUI.Text(wb, "", cx - 42f, 100f, 84f, 40f, 28f, ink, TextAlignmentOptions.Center);
+                haveText[i].fontStyle = FontStyles.Bold;
             }
+            RefreshRecipe();
 
             // Yönerge paneli
             MgUI.Rect(root, new Color(0f, 0f, 0f, 0.7f), 300f, 600f, 680f, 64f);
-            MgUI.Text(root, "DENİZ KUMUNU TIKLA · BANTTAN AT", 300f, 600f, 680f, 64f, 28f, new Color(0.87f, 0.9f, 0.93f), TextAlignmentOptions.Center)
+            MgUI.Text(root, "TARİFTEKİNİ TOPLA · GERİSİNİ TIKLA, AT", 300f, 600f, 680f, 64f, 28f, new Color(0.87f, 0.9f, 0.93f), TextAlignmentOptions.Center)
                 .characterSpacing = 2f;
 
-            // Sıra: ilki doğru malzeme, tuzaklar arka arkaya en fazla 2
+            // Sıra: tarif + fazlası + deniz kumu, karışık (ilki tarifte olan)
             var list = new List<Spec>();
             for (int i = 0; i < Traps; i++) list.Add(Bad[i % Bad.Length]);
-            for (int i = 0; i < Count - Traps; i++) list.Add(Good[i % Good.Length]);
+            for (int g = 0; g < Good.Length; g++)
+                for (int n = 0; n < Good[g].need + Extra[g]; n++) list.Add(Good[g]);
             for (int i = list.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); (list[i], list[j]) = (list[j], list[i]); }
             if (list[0].trap) { int g = list.FindIndex(s => !s.trap); (list[0], list[g]) = (list[g], list[0]); }
             queue.AddRange(list);
@@ -116,7 +155,7 @@ namespace LoadBearing
         {
             if (Finished) return;
             // Hız: başta yavaş, sona doğru hızlanır
-            speed = Mathf.Lerp(140f, 230f, spawned / (float)Count);
+            speed = Mathf.Lerp(170f, 250f, spawned / (float)Mathf.Max(1, queue.Count));
             beltOffset = Mathf.Repeat(beltOffset - speed * dt / 128f, 1f);
             belt.uvRect = new Rect(beltOffset, 0f, belt.uvRect.width, 1f);
 
@@ -177,7 +216,17 @@ namespace LoadBearing
 
             TickFx(dt);
             TickPopups(dt);
-            if (spawned >= queue.Count && items.Count == 0) Finished = true;
+            if (spawned >= queue.Count && items.Count == 0 && !Finished)
+            {
+                // Bant bitti: tarifte eksik kalan her malzeme HATA
+                for (int i = 0; i < Good.Length; i++)
+                {
+                    int miss = Mathf.Max(0, Good[i].need - have[i]);
+                    if (miss <= 0) continue;
+                    missing += miss; Defects += miss;
+                }
+                Finished = true;
+            }
         }
 
         void Spawn(Spec s)
@@ -203,9 +252,8 @@ namespace LoadBearing
             }
             else
             {
-                goodTossed++;
-                Defects++;
-                Popup($"EKSİK {it.spec.label.ToUpper(new System.Globalization.CultureInfo("tr-TR"))}! KUSUR +1", at, new Color(1f, 0.35f, 0.3f), 28f);
+                goodTossed++; // tarif eksik kalırsa bant sonunda hata yazılır
+                Popup("ATILDI", at, new Color(0.85f, 0.88f, 0.9f), 26f);
             }
         }
 
@@ -215,11 +263,38 @@ namespace LoadBearing
             it.t = 0f;
             it.pos = new Vector2(it.x, BeltY - it.h);
             PlayFx(it.spec.liquid ? "SPR_FX_Mixer_Splash" : "SPR_FX_Mixer_Dust", 3, HopperX + 116f, HopperY + 62f);
+            var tr = new System.Globalization.CultureInfo("tr-TR");
             if (it.spec.trap)
             {
                 trapsIn++;
                 Defects++;
-                Popup($"{it.spec.label.ToUpper(new System.Globalization.CultureInfo("tr-TR"))} GİRDİ! KUSUR +1", new Vector2(760f, 230f), new Color(1f, 0.35f, 0.3f), 30f);
+                Popup($"{it.spec.label.ToUpper(tr)} GİRDİ! HATA +1", new Vector2(760f, 230f), new Color(1f, 0.35f, 0.3f), 30f);
+                return;
+            }
+            int gi = System.Array.IndexOf(Good, it.spec);
+            if (gi >= 0 && have[gi] < Good[gi].need)
+            {
+                have[gi]++;
+                RefreshRecipe();
+                Popup("+1", new Vector2(760f, 230f), new Color(0.45f, 0.95f, 0.45f), 34f);
+            }
+            else
+            {
+                extraIn++;
+                Defects++;
+                Popup($"FAZLA {it.spec.label.ToUpper(tr)}! HATA +1", new Vector2(760f, 230f), new Color(1f, 0.35f, 0.3f), 30f);
+            }
+        }
+
+        void RefreshRecipe()
+        {
+            for (int i = 0; i < Good.Length; i++)
+            {
+                if (haveText[i] == null) continue;
+                bool done = have[i] >= Good[i].need;
+                haveText[i].text = $"{have[i]}/{Good[i].need}";
+                haveText[i].color = done ? new Color(0.16f, 0.55f, 0.22f) : new Color(0.17f, 0.15f, 0.13f);
+                if (haveIcon[i] != null) haveIcon[i].color = done ? new Color(1f, 1f, 1f, 0.55f) : Color.white;
             }
         }
 

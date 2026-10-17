@@ -25,6 +25,9 @@ namespace LoadBearing.EditorTools
         const string HasanDir = "Assets/Art/Characters/HasanAmca";
         const string SelinDir = "Assets/Art/Characters/Selin";
         const string MahmutDir = "Assets/Art/Characters/Mahmut";
+        const string EmreDir = "Assets/Art/Characters/Emre";
+        const string NaciyeDir = "Assets/Art/Characters/Naciye";
+        const string ZeynepDir = "Assets/Art/Characters/Zeynep";
 
         [MenuItem("Load Bearing/20 - Müşteri karakterlerini kur", priority = 20)]
         public static void Run()
@@ -44,13 +47,15 @@ namespace LoadBearing.EditorTools
             {
                 var talk = Clip($"{HasanDir}/HasanAmca@Talking.fbx");
                 var angry = Clip($"{HasanDir}/HasanAmca@Angry Point.fbx");
+                // Beklerken kızgın animasyon yok (geçişleri kopuk duruyordu); reddedilince "Sad" = kızgın hareket
                 var states = new List<(string, Motion, float)>
                 {
                     ("Idle", talk, 0f),          // Talking'in ilk karesi: T-poz yerine doğal duruş
                     ("Talking", talk, 1f),
-                    ("Angry", angry != null ? angry : talk, 1f),
+                    ("Sad", angry != null ? angry : talk, 1f),
                 };
-                hasan = BuildCharacter("HasanAmca", $"{HasanDir}/HasanAmca.fbx", $"{HasanDir}/T_Customer_C1_Hasan.png", states, 180f, log);
+                hasan = BuildCharacter("HasanAmca", $"{HasanDir}/HasanAmca.fbx", $"{HasanDir}/T_Customer_C1_Hasan.png", states, 180f, log,
+                                       cc => { cc.rejectSeconds = 3f; });
             }
 
             // ---- Mahmut (C2): kendi modeli + dokusu; konuşma / kızgın animasyonları Hasan Amca'nınki (Humanoid, her modele uyar)
@@ -76,15 +81,20 @@ namespace LoadBearing.EditorTools
                     {
                         ("Idle", talk, 0f),
                         ("Talking", talk, 1f),
-                        ("Angry", angry != null ? angry : talk, 1f),
+                        ("Sad", angry != null ? angry : talk, 1f),   // reddedilince kızgın hareket
                     };
                     if (dance != null) states.Add(("Happy", dance, 1f));
                     if (walk != null) states.Add(("Walk", walk, 1f));
                     mahmut = BuildCharacter("Mahmut", model, FindAsset(MahmutDir, "T_Customer_C2_Mahmut"), states, float.NaN, log,
-                                            cc => { cc.standBack = 0.35f; cc.happySeconds = 5f; }); // biraz geride durur, onayda 5 sn dans
+                                            cc => { cc.standBack = 0.35f; cc.happySeconds = 5f; cc.rejectSeconds = 3f; }); // biraz geride durur, onayda 5 sn dans
                 }
                 else log.Append($"\n - UYARI: Mahmut modeli yok ({MahmutDir}/SK_Customer_C2_Mahmut.fbx)");
             }
+
+            // ---- 2. gün karakterleri (kendi modeli + dokusu + konuşma / kızgın animasyonları)
+            var emre = BuildDay2("Emre", EmreDir, "SK_Customer_C8_Emre", "T_Customer_C8_Emre", "Standing Arguing", "Kızgın", log);
+            var naciye = BuildDay2("Naciye", NaciyeDir, "SK_Customer_C5_Naciye", "T_Customer_C5_Naciye", "Talking", null, log);
+            var zeynep = BuildDay2("Zeynep", ZeynepDir, "SK_Customer_C10_Zeynep", "T_Customer_C10_Zeynep", "Talking", "Standing Arguing", log);
 
             // ---- Selin
             GameObject selin = null;
@@ -138,7 +148,13 @@ namespace LoadBearing.EditorTools
                     foreach (var c in d.customers)
                     {
                         if (c == null) continue;
-                        GameObject want = c.id == "C1" ? hasan : c.id == "C2" ? mahmut : c.id == "C3" ? selin : null;
+                        GameObject want = c.id == "C1" ? hasan : c.id == "C2" ? mahmut : c.id == "C3" ? selin
+                                        : c.id == "C4" ? emre : c.id == "C5" ? naciye : c.id == "C6" ? zeynep : null;
+                        // C6 artık Zeynep (Yalın Yapı temsilcisi, kadın)
+                        if (c.id == "C6" && zeynep != null && c.displayName != "Zeynep Yalın")
+                        {
+                            c.displayName = "Zeynep Yalın"; c.body = BodyType.Female; c.voicePitch = 1.2f; EditorUtility.SetDirty(c);
+                        }
                         if (c.characterPrefab != want) { c.characterPrefab = want; EditorUtility.SetDirty(c); }
                         // C2 artık Mahmut (ikinci Hasan Amca yok)
                         if (c.id == "C2" && mahmut != null && c.displayName != "Mahmut Aydın") { c.displayName = "Mahmut Aydın"; EditorUtility.SetDirty(c); }
@@ -150,6 +166,40 @@ namespace LoadBearing.EditorTools
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
             Debug.Log("<color=lime>[Load Bearing]</color> Müşteri karakterleri kuruldu." + log);
+        }
+
+        // ------------------------------------------------------------------ 2. gün karakterleri
+
+        /// Model + doku + '@' animasyonları: talkKey içeren dosya konuşma, angryKey içeren kızgın.
+        /// Bekleme = konuşmanın ilk karesi, yürüme = Selin'in yürüyüşü (Humanoid, her modele uyar).
+        static GameObject BuildDay2(string name, string dir, string modelName, string texName, string talkKey, string angryKey, System.Text.StringBuilder log)
+        {
+            string model = FindAsset(dir, modelName);
+            if (model == null) { log.Append($"\n - UYARI: {name} modeli yok ({dir}/{modelName}.fbx)"); return null; }
+            SetupModelImporter(model);
+            AnimationClip talk = null, angry = null;
+            foreach (var p in AssetDatabase.FindAssets("t:Model", new[] { dir }).Select(AssetDatabase.GUIDToAssetPath))
+            {
+                if (!p.Contains("@")) continue;
+                string anim = Path.GetFileNameWithoutExtension(p);
+                anim = anim.Substring(anim.IndexOf('@') + 1);
+                if (talk == null && anim.Contains(talkKey)) { SetupClipImporter(p, "Talking", true); talk = Clip(p); }
+                else if (angryKey != null && angry == null && anim.Contains(angryKey)) { SetupClipImporter(p, "Angry", true); angry = Clip(p); }
+            }
+            if (talk == null) talk = Clip($"{HasanDir}/HasanAmca@Talking.fbx");
+            if (angry == null) angry = Clip($"{HasanDir}/HasanAmca@Angry Point.fbx");
+            var walkPath = FindAsset(SelinDir, "A_Customer_Selin_Walk");
+            var walk = walkPath != null ? Clip(walkPath) : null;
+            var states = new List<(string, Motion, float)>
+            {
+                ("Idle", talk, 0f),
+                ("Talking", talk, 1f),
+                ("Sad", angry != null ? angry : talk, 1f),   // reddedilince: tartışma / kızma animasyonu (beklerken oynamaz)
+            };
+            if (walk != null) states.Add(("Walk", walk, 1f));
+            // Konuşma uzun sürsün; reddedilince kendi tepkisini 3,5 sn oynasın, sonra çıksın
+            return BuildCharacter(name, model, FindAsset(dir, texName), states, float.NaN, log,
+                                  cc => { cc.talkHold = 2.5f; cc.rejectSeconds = 3.5f; });
         }
 
         // ------------------------------------------------------------------ Selin dosyaları

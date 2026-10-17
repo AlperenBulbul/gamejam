@@ -14,24 +14,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
   id: C6
   day: 2
-  displayName: "Okan Yal\u0131n"
+  displayName: "Zeynep Yal\u0131n"
   role: "Yal\u0131n Yap\u0131 A.\u015E. temsilcisi"
-  ada: 21
+  ada: 3
   parsel: 6
   areaM2: 420
   floors: 5
   use: Konut
   licenseNo: "\u0130MO-3390"
   soil: 1
-  inFloodZone: 0
+  inFloodZone: 1
   onFaultLine: 0
-  mapPixel: {x: 4508, y: 1552}
+  mapPixel: {x: 2028, y: 248}
   bribe: 0
   patienceSeconds: 80
-  voicePitch: 1.05
-  body: 0
+  voicePitch: 1.2
+  body: 1
   variantMaterial: {fileID: 0}
+  characterPrefab: {fileID: 2416644234758996006, guid: c3b44aeb2cc95624f923d8df31abeec6, type: 3}
   greeting: "Yal\u0131n Yap\u0131. Zemin et\xFCd\xFC ve ka\u015Fe ekte. Her \u015Fey tam."
   approveLine: "G\xFCzel. \u0130\u015Fimizi biliriz."
   rejectLine: "Bunu itiraz yoluyla \xE7\xF6zeriz."
-  expectedValid: 1
+  expectedValid: 0

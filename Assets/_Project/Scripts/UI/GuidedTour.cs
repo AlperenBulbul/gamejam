@@ -65,7 +65,7 @@ namespace LoadBearing
         {
             if (s == GameState.MainMenu) { Stop(); ActiveThisRun = false; return; }
             var gm = GameManager.Instance;
-            if (s == GameState.DayIntro && gm != null && gm.Run != null && gm.Run.day == 1 && !completedThisSession && !Running)
+            if (s == GameState.DayIntro && gm != null && gm.Run != null && gm.Run.day == 1 && !Running) // her yeni oyunda (ana menüden BAŞLA)
             {
                 StopAllCoroutines();
                 StartCoroutine(Run());

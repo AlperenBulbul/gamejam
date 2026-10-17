@@ -49,12 +49,61 @@ namespace LoadBearing
         {
             // Kısa, görselli 3 sayfa (minigame tanıtımı gibi: bak, anla, geç)
             pages = DefaultPages();
+            EnlargeLayout();
 
             prevButton.onClick.AddListener(Prev);
             nextButton.onClick.AddListener(Next);
             doneButton.onClick.AddListener(Done);
             if (menuButton != null) menuButton.onClick.AddListener(BackToMenu);
             root.SetActive(false);
+        }
+
+        /// Okunabilirlik (jüri): kart ekranın çoğunu kaplar, görsel ve yazılar büyür.
+        /// Sahnedeki düzen (menü 'UI kur') koddan büyütülür, sahneyi yeniden kurmaya gerek yok.
+        void EnlargeLayout()
+        {
+            var card = titleText != null ? titleText.rectTransform.parent as RectTransform : null;
+            if (card == null) return;
+            card.sizeDelta = new Vector2(1680f, 900f);
+            card.anchoredPosition = new Vector2(0f, 30f);
+
+            titleText.fontSize = 60f;
+            var rule = card.Find("Rule") as RectTransform;
+            if (rule != null) rule.sizeDelta = new Vector2(card.sizeDelta.x - 112f, rule.sizeDelta.y);
+
+            // Görsel: başlık çizgisinin altından 460 px yükseklik (eskisi 280)
+            var img = pageImage != null ? pageImage.rectTransform : null;
+            if (img != null)
+            {
+                img.anchorMin = new Vector2(0f, 1f); img.anchorMax = new Vector2(1f, 1f); img.pivot = new Vector2(0.5f, 1f);
+                img.offsetMin = new Vector2(56f, -650f); img.offsetMax = new Vector2(-56f, -190f);
+            }
+
+            // Metin görselin altında, düğmelerin üstünde
+            bodyTopWithImage = 668f;
+            if (bodyText != null)
+            {
+                var b = bodyText.rectTransform;
+                b.offsetMin = new Vector2(80f, 124f);
+                b.offsetMax = new Vector2(-80f, b.offsetMax.y);
+            }
+
+            foreach (var btn in new[] { prevButton, nextButton, doneButton })
+            {
+                if (btn == null) continue;
+                var rt = (RectTransform)btn.transform;
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x + 40f, 74f);
+                var l = btn.GetComponentInChildren<TMP_Text>();
+                if (l != null) l.fontSize = 30f;
+            }
+            if (pageCounter != null) pageCounter.fontSize = 30f;
+            if (menuButton != null)
+            {
+                var rt = (RectTransform)menuButton.transform;
+                rt.sizeDelta = new Vector2(210f, 52f);
+                var l = menuButton.GetComponentInChildren<TMP_Text>();
+                if (l != null) l.fontSize = 24f;
+            }
         }
 
         public void Open()
@@ -113,7 +162,8 @@ namespace LoadBearing
             if (hasImage) { pageImage.sprite = p.image; pageImage.preserveAspect = true; }
             titleText.alignment = TextAlignmentOptions.Center;
             bodyText.alignment = TextAlignmentOptions.Top;
-            bodyText.fontSize = 34f;
+            bodyText.fontSize = 40f;
+            bodyText.enableAutoSizing = true; bodyText.fontSizeMin = 30f; bodyText.fontSizeMax = 40f;
             bodyText.horizontalAlignment = HorizontalAlignmentOptions.Center;
             var bodyRt = bodyText.rectTransform;
             bodyRt.offsetMax = new Vector2(bodyRt.offsetMax.x, -(hasImage ? bodyTopWithImage : bodyTopWithoutImage));

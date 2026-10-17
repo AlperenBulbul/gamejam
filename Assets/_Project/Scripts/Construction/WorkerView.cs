@@ -188,10 +188,56 @@ namespace LoadBearing
             col.size = new Vector3(0.16f, 0.32f, 0.16f);
         }
 
+        // ------------------------------------------------------------------ kaytaran işçi: ünlem + uyarı
+
+        Transform alert;
+        float heyUntil;
+
+        /// Oyuncu uyardı: işçi irkilip "tamam şefim" der (React_Hey), sonra işine döner
+        public void Warned()
+        {
+            heyUntil = Time.time + 1.1f;
+            if (clips != null && clips.ContainsKey("React_Hey")) { playing = null; Play("React_Hey"); }
+        }
+
+        /// İşçinin üstünde sarı ünlem (kaytarırken)
+        void BuildAlert()
+        {
+            alert = new GameObject("Alert").transform;
+            alert.SetParent(transform, false);
+            alert.localPosition = new Vector3(0f, 0.40f, 0f);
+            var amber = new Color(1f, 0.74f, 0.12f);
+            var dark = new Color(0.08f, 0.08f, 0.09f);
+            // Kameraya bakan düz ünlem: koyu kenar arkada, sarı çizgi + nokta önde
+            Box("Back", alert, new Vector3(0f, 0.035f, 0.02f), new Vector3(0.056f, 0.14f, 0.01f), dark, Quaternion.identity, unlit);
+            Box("Bar", alert, new Vector3(0f, 0.052f, 0f), new Vector3(0.032f, 0.075f, 0.02f), amber, Quaternion.identity, unlit);
+            Box("Dot", alert, new Vector3(0f, -0.012f, 0f), new Vector3(0.032f, 0.03f, 0.02f), amber, Quaternion.identity, unlit);
+            foreach (var t in alert.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = gameObject.layer;
+            alert.gameObject.SetActive(false);
+        }
+
+        void UpdateAlert()
+        {
+            bool show = FaultType > 0 && !MinigameDirector.OnScreen;
+            if (show && alert == null) BuildAlert();
+            if (alert == null) return;
+            if (alert.gameObject.activeSelf != show) alert.gameObject.SetActive(show);
+            if (!show) return;
+            // Hafifçe zıplar, kameraya döner
+            alert.localPosition = new Vector3(0f, 0.40f + Mathf.Abs(Mathf.Sin((Time.time + phase) * 4f)) * 0.03f, 0f);
+            var cam = MonitorFeed.Instance != null ? MonitorFeed.Instance.feedCamera : null;
+            if (cam != null) alert.rotation = Quaternion.LookRotation(cam.transform.forward, Vector3.up);
+        }
+
         public void SetFault(int type)
         {
             if (type == FaultType) return;
             FaultType = type;
+            if (Time.time < heyUntil && type == 0)
+            {
+                for (int i = 1; i < props.Length; i++) if (props[i] != null) props[i].SetActive(false);
+                return; // "tamam şefim" bitince işe döner (Update)
+            }
             for (int i = 1; i < props.Length; i++) if (props[i] != null) props[i].SetActive(i == type);
             if (type > 0 && type < props.Length && props[type] == null) props[type] = BuildProp(type);
             if (armR != null) armR.gameObject.SetActive(type == 0 || type == 3); // hatalıyken çekiç yok
@@ -240,6 +286,9 @@ namespace LoadBearing
 
         void Update()
         {
+            UpdateAlert();
+            if (clips != null && playing == "React_Hey" && Time.time >= heyUntil)
+                Play(FaultType == 0 ? WorkClips[index % WorkClips.Length] : SlackClips[(index + FaultType) % SlackClips.Length]);
             float t = Time.time + phase;
             if (body != null)
             {

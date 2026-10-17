@@ -17,6 +17,8 @@ namespace LoadBearing
         public int Defects { get; protected set; }
 
         public abstract string Title { get; }
+        /// Sonuç ekranındaki skor (0-100). Varsayılan: her hata 20 puan götürür
+        public virtual int Score => 100 - Defects * 20;
         public abstract string Instructions { get; }
         /// Üst şeritteki sol yazı (REC'den sonrası)
         public abstract string Strip { get; }

@@ -31,9 +31,11 @@ namespace LoadBearing
         Phase phase = Phase.Swing;
 
         public override string Title => "KOLON DÖKÜMÜ";
+        // Dik dökülen kolon oranı
+        public override int Score => Mathf.RoundToInt(100f * goodTotal / (Floors * 3));
         public override string Instructions =>
             "Kabarcık <b><color=#5FD068>YEŞİLDEYKEN</color></b>\n<b><color=#F2B233>TIKLA</color></b>\n\n<size=75%><color=#B8C0C8>Kolon dik dökülsün</color></size>";
-        public override string IntroTitle => "KOLONLAR EĞRİ DÖKÜLÜYOR!";
+        public override string IntroTitle => "Kolonlar eğri dökülüyor";
         public override string IntroBefore => "Kabarcık";
         public override string IntroAfter => "yeşildeyken tıkla";
         public override Vector2 IntroVisualSize => new Vector2(340f, 60f);
@@ -187,7 +189,7 @@ namespace LoadBearing
             var top = new Vector2(BaseX[col] - Mathf.Sin(rad) * ColH, BaseY - Mathf.Cos(rad) * ColH);
             PlayFx("SPR_FX_Concrete_Pour", 4, top.x, top.y - 10f);
             if (ok) { goodTotal++; Popup("DİK!", top + new Vector2(0f, -50f), new Color(0.5f, 1f, 0.5f)); }
-            else { badTotal++; Defects++; Popup("EĞRİ! KUSUR +1", top + new Vector2(0f, -50f), new Color(1f, 0.38f, 0.32f), 30f); }
+            else { badTotal++; Defects++; Popup("EĞRİ! HATA +1", top + new Vector2(0f, -50f), new Color(1f, 0.38f, 0.32f), 30f); }
             UpdateBubble(angle[col]);
             phase = Phase.Settle;
             wait = 0.6f;

@@ -119,20 +119,40 @@ namespace LoadBearing
             interactable.focusState = FocusState.Newspaper;
         }
 
+        FocusState lastTarget = FocusState.Desk;
+
         void OnTransition(FocusState from, FocusState to)
         {
+            lastTarget = to;
             if (to == FocusState.Newspaper) SetGlow(false); // oyuncu gazeteyi açtı
         }
 
         void OnStateChanged(GameState s)
         {
+            if (s == GameState.MainMenu) lastTarget = FocusState.Desk;
             SetGlow(s == GameState.DayIntro);
+        }
+
+        /// Gün başında (her gün) gazete açılana kadar parlar; masadayken altta "Gazeteye git" yazar.
+        /// Olaylara güvenmek yerine her karede kontrol edilir (2. gün geçişinde parıltı kayboluyordu).
+        void KeepGlow()
+        {
+            var fc = FocusController.Instance;
+            var gm = GameManager.Instance;
+            bool atPaper = lastTarget == FocusState.Newspaper || (fc != null && fc.State == FocusState.Newspaper);
+            bool want = gm != null && gm.State == GameState.DayIntro && !atPaper;
+            if (want != glowing || (glowFrame != null && glowFrame.activeSelf != want)) SetGlow(want);
+
+            bool prompt = want && fc != null && !fc.IsTransitioning && fc.State == FocusState.Desk
+                          && !GuidedTour.Running && !EndScreenUI.Blocking;
+            PromptBar.Set("newspaper", prompt ? "<b>Gazeteye</b> git" : null);
         }
 
         // ------------------------------------------------------------------ "GÜNE BAŞLA"
 
         void Update()
         {
+            KeepGlow();
             UpdateGlow();
 
             var fc = FocusController.Instance;

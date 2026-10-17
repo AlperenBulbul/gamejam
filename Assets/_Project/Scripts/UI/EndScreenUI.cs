@@ -7,16 +7,11 @@ using UnityEngine.UI;
 
 namespace LoadBearing
 {
-    /// - Gün geçişi: 1. günün minigame'i bitince siyah ekranda "2. GÜN" yazar, sonra masaya açılır
-    /// - Bitiş ekranı (Ending): KAZANDIN / KAYBETTİN, yaptıkların ve yapamadıkların listesi, ANA MENÜ / OYUNDAN ÇIK
-    /// Kaybetme sebepleri: kurallara aykırı binaya onay, rüşvetle onay, 3+ kusurlu bina (depremde çöker), kovulma.
+    /// - Gün geçişi: 1. günün minigame'i bitince bulanık masanın üstünde "2. gün" yazar, tıklayınca masaya açılır
+    /// - Bitiş ekranı (Ending): denetim raporu kâğıdı + son mührü, doğru yapılanlar / hatalar, Ana menüye dön / Oyundan çık
     /// GameManager bu bileşeni kendisi ekler, sahnede kurulum gerekmez.
     public class EndScreenUI : MonoBehaviour
     {
-        static readonly Color Amber = new Color(0.95f, 0.70f, 0.20f);
-        static readonly Color Good = new Color(0.45f, 0.92f, 0.50f);
-        static readonly Color Bad = new Color(1f, 0.40f, 0.35f);
-        static readonly Color Ink = new Color(0.07f, 0.075f, 0.08f);
 
         /// Gün kartı açık: masa kontrolleri kapalı
         public static bool Blocking { get; private set; }
@@ -80,7 +75,7 @@ namespace LoadBearing
         {
             var fc = FocusController.Instance;
             if (fc != null) fc.Back(); // monitörden masaya (siyah ekranın arkasında)
-            dayText.text = $"{day}. GÜN\n<size=40%><color=#F2B233>Yeni kurallar klasörde</color></size>\n\n<size=28%><color=#B8C0C8>Geçmek için tıklayın</color></size>";
+            dayText.text = $"{day}. gün\n<size=30%><color=#D8D2C4>Kural kitapçığına yeni kural eklendi</color></size>";
             dayCard.SetActive(true);
             dayGroup.alpha = 1f;
             dayBlur.color = new Color(0.5f, 0.5f, 0.5f, 0f);
@@ -164,21 +159,27 @@ namespace LoadBearing
 
         IEnumerator ShowFinish()
         {
+            var gm = GameManager.Instance;
+            var end = EndingRules.Resolve(gm);
+            Debug.Log($"[Son] {end.id}{(end.featured != null ? " (" + end.featured.id + ")" : "")}{(end.badge ? " + Yılın Denetçisi" : "")}");
+
+            // Arkadaşın bitiş videosu varsa önce o oynar (Resources/EndingVideos/<son adı>)
+            yield return PlayEndingVideo(end);
+
             var good = new List<string>();
             var bad = new List<string>();
-            var fatal = new List<string>();
             int correct = 0, total = 0;
-            Report(good, bad, fatal, ref correct, ref total);
+            Report(good, bad, ref correct, ref total, end);
 
-            bool win = fatal.Count == 0;
-            title.text = win ? "KAZANDIN" : "KAYBETTİN";
-            title.color = win ? Good : Bad;
-            subtitle.text = win
-                ? "Karaova'nın binaları ilk depremde ayakta kalacak. Mesai bitti, eline sağlık müfettiş."
-                : string.Join("  ·  ", fatal);
-            scoreText.text = total > 0 ? $"Doğru karar: <b>{correct} / {total}</b>" : "";
-            goodText.text = Lines(good, Good, "Kayda değer bir başarı yok.");
-            badText.text = Lines(bad, Bad, "Hiç hata yapmadın!");
+            title.text = end.title;
+            SetStampColor(end.good ? StampGreen : end.neutral ? StampOchre : StampRed);
+            string sub = end.body;
+            if (end.featured != null) sub += $"\n\n<size=78%><i>Dosya: {end.featured.displayName}, ada {end.featured.ada}, {end.featured.floors} kat</i></size>";
+            if (end.badge) sub += "\n\n<size=85%><b><i>Yılın Denetçisi plaketi</i></b></size>";
+            subtitle.text = sub;
+            scoreText.text = $"Sonuç: {EndingRules.ReasonLabel(end.id)}" + (total > 0 ? $"     Doğru karar: {correct} / {total}" : "");
+            goodText.text = Lines(good, "Kayda değer bir şey yok.");
+            badText.text = Lines(bad, "Hata yok.");
 
             finish.SetActive(true);
             finishGroup.alpha = 0f;
@@ -186,32 +187,105 @@ namespace LoadBearing
             {
                 float k = t / 0.6f;
                 finishGroup.alpha = k;
-                title.transform.localScale = Vector3.one * Mathf.Lerp(1.4f, 1f, Mathf.SmoothStep(0f, 1f, k));
+                if (stampRt != null) stampRt.localScale = Vector3.one * Mathf.Lerp(1.6f, 1f, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f))); // mühür basılır
                 yield return null;
             }
             finishGroup.alpha = 1f;
-            title.transform.localScale = Vector3.one;
+            if (stampRt != null) stampRt.localScale = Vector3.one;
         }
 
-        static string Lines(List<string> list, Color c, string empty)
+        // ------------------------------------------------------------------ bitiş videosu
+
+        /// Önce en özel ad aranır: Jail_Quake_C4, NoOneDied_Badge ... sonra genel ad (Jail_Quake, NoOneDied ...)
+        static UnityEngine.Video.VideoClip FindVideo(EndingResult end)
         {
-            if (list.Count == 0) return $"<color=#9AA3AB><i>{empty}</i></color>";
-            string hex = ColorUtility.ToHtmlStringRGB(c);
+            var names = new List<string>();
+            if (end.featured != null) names.Add($"{end.id}_{end.featured.id}");
+            if (end.badge) names.Add($"{end.id}_Badge");
+            names.Add(end.id.ToString());
+            if (end.id.ToString().StartsWith("Fired_")) names.Add("Fired");   // ortak kovulma videosu
+            if (end.id.ToString().StartsWith("Jail_")) names.Add("Jail");
+            foreach (var n in names)
+            {
+                var clip = Resources.Load<UnityEngine.Video.VideoClip>("EndingVideos/" + n);
+                if (clip != null) return clip;
+            }
+            return null;
+        }
+
+        IEnumerator PlayEndingVideo(EndingResult end)
+        {
+            var clip = FindVideo(end);
+            if (clip == null) yield break;
+
+            var go = new GameObject("EndingVideo", typeof(RectTransform), typeof(RawImage));
+            go.transform.SetParent(canvas.transform, false);
+            var rt = (RectTransform)go.transform;
+            Stretch(rt);
+            rt.SetAsLastSibling();
+            var img = go.GetComponent<RawImage>();
+            img.color = Color.black;
+            var rtex = new RenderTexture((int)Mathf.Max(16, clip.width), (int)Mathf.Max(16, clip.height), 0);
+            var vp = go.AddComponent<UnityEngine.Video.VideoPlayer>();
+            vp.playOnAwake = false;
+            vp.isLooping = false;
+            vp.clip = clip;
+            vp.renderMode = UnityEngine.Video.VideoRenderMode.RenderTexture;
+            vp.targetTexture = rtex;
+            vp.audioOutputMode = UnityEngine.Video.VideoAudioOutputMode.Direct;
+            vp.Prepare();
+            for (float w = 0f; !vp.isPrepared && w < 5f; w += Time.unscaledDeltaTime) yield return null;
+            if (vp.isPrepared)
+            {
+                img.texture = rtex;
+                img.color = Color.white;
+                // Ekranı oranı bozmadan kapla (siyah kenar olabilir)
+                var fit = go.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                fit.aspectRatio = clip.width > 0 && clip.height > 0 ? (float)clip.width / clip.height : 16f / 9f;
+                var back = new GameObject("VideoBack", typeof(RectTransform), typeof(Image));
+                back.transform.SetParent(canvas.transform, false);
+                Stretch((RectTransform)back.transform);
+                back.GetComponent<Image>().color = Color.black;
+                back.transform.SetSiblingIndex(go.transform.GetSiblingIndex());
+
+                vp.Play();
+                float t = 0f;
+                double length = clip.length;
+                while (t < length + 0.5f)
+                {
+                    t += Time.unscaledDeltaTime;
+                    var m = UnityEngine.InputSystem.Mouse.current; var kb = UnityEngine.InputSystem.Keyboard.current;
+                    bool skip = t > 0.8f && ((m != null && m.leftButton.wasPressedThisFrame) ||
+                                (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame)));
+                    if (skip || (t > 0.5f && !vp.isPlaying)) break;
+                    yield return null;
+                }
+                Destroy(back);
+            }
+            vp.Stop();
+            Destroy(go);
+            rtex.Release();
+            Destroy(rtex);
+        }
+
+        static string Lines(List<string> list, string empty)
+        {
+            if (list.Count == 0) return $"<color=#6A655D><i>{empty}</i></color>";
             var sb = new StringBuilder();
-            foreach (var l in list) sb.Append($"<color=#{hex}>•</color>  {l}\n");
+            foreach (var l in list) sb.Append("–  ").Append(l).Append('\n');
             return sb.ToString();
         }
 
-        void Report(List<string> good, List<string> bad, List<string> fatal, ref int correct, ref int total)
+        void Report(List<string> good, List<string> bad, ref int correct, ref int total, EndingResult end)
         {
             var gm = GameManager.Instance;
             if (gm == null || gm.Run == null) return;
             var run = gm.Run;
             var cfg = gm.Config;
-            int collapse = cfg != null ? cfg.defectCollapse : 3;
 
             // Kararlar
-            bool unsafeApproval = false, bribeCustomerSeen = false;
+            bool bribeCustomerSeen = false;
             foreach (var d in run.decisions)
             {
                 var c = gm.FindCustomer(d.customerId);
@@ -221,47 +295,49 @@ namespace LoadBearing
                 total++;
                 if (d.approved == d.valid) correct++;
                 if (d.approved && d.valid) good.Add($"{name}: doğru onay");
-                else if (!d.approved && !d.valid) good.Add($"{name}: doğru ret <color=#9AA3AB>({why})</color>");
-                else if (d.approved) { bad.Add($"{name}: kurallara aykırı onay <color=#9AA3AB>({why})</color>"); unsafeApproval = true; }
-                else bad.Add($"{name}: haksız ret <color=#9AA3AB>(başvuru uygundu)</color>");
+                else if (!d.approved && !d.valid) good.Add($"{name}: doğru ret <color=#6A655D>({why})</color>");
+                else if (d.approved) bad.Add($"{name}: kurallara aykırı onay <color=#6A655D>({why})</color>");
+                else bad.Add($"{name}: haksız ret <color=#6A655D>(başvuru uygundu)</color>");
             }
-            if (unsafeApproval) fatal.Add("Kurallara aykırı binaya onay verdin");
 
             foreach (var c in angryLeft)
                 bad.Add($"{(c != null ? c.displayName : "Müşteri")}: bekletildi, sinirlenip gitti");
 
             // Rüşvet
-            if (!string.IsNullOrEmpty(run.bribeOnApproved)) { bad.Add("Rüşvet alıp onay verdin"); fatal.Add("Rüşvet aldın"); }
-            else if (run.anyBribe) bad.Add("Rüşvet zarfını aldın");
+            if (run.bribeTakenDay > 0) bad.Add("Rüşvet zarfını aldın");
             else if (bribeCustomerSeen) good.Add("Rüşvete yüz vermedin");
 
             // Monitör minigame'leri
             foreach (var r in MinigameDirector.Results)
             {
                 if (r.defects == 0) good.Add($"{r.title} (Şantiye {r.site}): temiz iş");
-                else bad.Add($"{r.title} (Şantiye {r.site}): {r.defects} kusur");
+                else bad.Add($"{r.title} (Şantiye {r.site}): {r.defects} hata");
             }
 
-            // Şantiyeler
+            // Şantiyeler: deprem ve sel (kovulduysan felaketi masandan izlemedin)
+            bool fired = run.fireReason != FireReason.None;
             var cm = ConstructionManager.Instance;
             if (cm != null)
             {
                 foreach (var s in cm.Sites)
                 {
                     string owner = s.customer != null ? s.customer.displayName : "";
-                    if (s.defects >= collapse) { bad.Add($"Şantiye {s.letter} ({owner}): {s.defects} kusur, depremde çöker"); fatal.Add($"Şantiye {s.letter} depremde çöker"); }
-                    else if (s.defects > 0) bad.Add($"Şantiye {s.letter} ({owner}): {s.defects} kusur");
-                    else good.Add($"Şantiye {s.letter} ({owner}): kusursuz");
+                    if (fired)
+                    {
+                        if (s.defects > 0) bad.Add($"Şantiye {s.letter} ({owner}): {s.defects} hata");
+                        continue;
+                    }
+                    switch (EndingRules.Outcome(s, cfg))
+                    {
+                        case SiteOutcome.CollapsedQuake: bad.Add($"Şantiye {s.letter} ({owner}): depremde çöktü"); break;
+                        case SiteOutcome.CollapsedFlood: bad.Add($"Şantiye {s.letter} ({owner}): selde yıkıldı"); break;
+                        case SiteOutcome.Damaged: bad.Add($"Şantiye {s.letter} ({owner}): depremde çatladı ({s.defects} hata), kimse ölmedi"); break;
+                        default: good.Add($"Şantiye {s.letter} ({owner}): depremde ayakta"); break;
+                    }
                 }
             }
             if (faultsFixed > 0) good.Add($"{faultsFixed} hatalı işçiyi yakaladın");
-
-            if (run.pendingFired)
-            {
-                fatal.Insert(0, "Kovuldun");
-                if (run.wrongfulRejects >= (cfg != null ? cfg.wrongfulRejectLimit : 3)) bad.Add($"{run.wrongfulRejects} haksız ret: kovuldun");
-                else bad.Add($"{run.penalties} ceza: kovuldun");
-            }
+            if (fired) bad.Insert(0, $"<b>{EndingRules.ReasonLabel(end.id)}</b> (gün {run.day} sonu denetimi)");
         }
 
         void ToMenu()
@@ -306,60 +382,150 @@ namespace LoadBearing
             dayText = Label((RectTransform)dayCard.transform, "", 120f, Color.white, TextAlignmentOptions.Center);
             Stretch(dayText.rectTransform);
             dayText.fontStyle = FontStyles.Bold;
-            dayText.characterSpacing = 10f;
+            dayText.color = new Color(0.95f, 0.93f, 0.88f);
+            dayText.lineSpacing = 10f;
+
+            // Altta sabit küçük ipucu: [sol tık] Devam (yanıp sönen büyük harfli yazı yok)
+            var dayHint = new GameObject("Hint", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var dhr = (RectTransform)dayHint.transform;
+            dhr.SetParent(dayCard.transform, false);
+            dhr.anchorMin = dhr.anchorMax = new Vector2(0.5f, 0f);
+            dhr.pivot = new Vector2(0.5f, 0.5f);
+            dhr.anchoredPosition = new Vector2(0f, 110f);
+            dhr.localScale = Vector3.one * 1.3f;
+            var dhl = dayHint.GetComponent<HorizontalLayoutGroup>();
+            dhl.spacing = 10f; dhl.childAlignment = TextAnchor.MiddleCenter;
+            dhl.childControlWidth = dhl.childControlHeight = true;
+            dhl.childForceExpandWidth = dhl.childForceExpandHeight = false;
+            var dfit = dayHint.GetComponent<ContentSizeFitter>();
+            dfit.horizontalFit = dfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            KeyIcons.Add(dhr, "LMB", null);
+            Label(dhr, "Devam", 22f, new Color(0.85f, 0.83f, 0.78f), TextAlignmentOptions.MidlineLeft);
             dayCard.SetActive(false);
 
-            // Bitiş ekranı
-            finish = Panel(root, "Finish", new Color(0.035f, 0.04f, 0.045f, 0.97f));
+            // Bitiş ekranı: masaya bırakılmış bir denetim raporu (kâğıt + mühür), süslü kutu / parlama yok
+            finish = Panel(root, "Finish", new Color(0.05f, 0.045f, 0.04f, 0.92f));
             finishGroup = finish.AddComponent<CanvasGroup>();
             var f = (RectTransform)finish.transform;
 
-            title = Label(f, "", 120f, Color.white, TextAlignmentOptions.Center);
-            Place(title.rectTransform, 0.5f, 1f, new Vector2(0f, -100f), new Vector2(1400f, 150f));
-            title.fontStyle = FontStyles.Bold;
-            title.characterSpacing = 12f;
+            // Kâğıdın gölgesi + kâğıt (hafif eğik)
+            var shadow = Panel(f, "PaperShadow", new Color(0f, 0f, 0f, 0.45f));
+            Place((RectTransform)shadow.transform, 0.5f, 0.5f, new Vector2(10f, -12f), new Vector2(1240f, 960f));
+            shadow.transform.localRotation = Quaternion.Euler(0f, 0f, -0.8f);
+            var paperGo = Panel(f, "Paper", Paper);
+            var paper = (RectTransform)paperGo.transform;
+            Place(paper, 0.5f, 0.5f, new Vector2(0f, 0f), new Vector2(1240f, 960f));
+            paper.localRotation = Quaternion.Euler(0f, 0f, -0.8f);
 
-            subtitle = Label(f, "", 30f, new Color(0.88f, 0.9f, 0.92f), TextAlignmentOptions.Center);
-            Place(subtitle.rectTransform, 0.5f, 1f, new Vector2(0f, -225f), new Vector2(1500f, 50f));
+            // Antet
+            var org = Label(paper, "Karaova Belediyesi  ·  Yapı Denetim Müdürlüğü", 22f, InkSoft, TextAlignmentOptions.MidlineLeft);
+            Place(org.rectTransform, 0f, 1f, new Vector2(80f + 380f, -64f), new Vector2(760f, 34f));
+            var docNo = Label(paper, "Denetçi dosyası  ·  2026/LB", 22f, InkSoft, TextAlignmentOptions.MidlineRight);
+            Place(docNo.rectTransform, 1f, 1f, new Vector2(-80f - 230f, -64f), new Vector2(460f, 34f));
+            var head = Label(paper, "Denetim raporu", 46f, PaperInk, TextAlignmentOptions.MidlineLeft);
+            Place(head.rectTransform, 0f, 1f, new Vector2(80f + 380f, -116f), new Vector2(760f, 60f));
+            head.fontStyle = FontStyles.Bold;
+            Rule(paper, -152f, 2f);
+
+            // Sonuç cümlesi (sol) + mühür (sağ üst)
+            subtitle = Label(paper, "", 32f, PaperInk, TextAlignmentOptions.TopLeft);
+            Place(subtitle.rectTransform, 0f, 1f, new Vector2(80f + 340f, -270f), new Vector2(680f, 200f));
             subtitle.textWrappingMode = TextWrappingModes.Normal;
+            subtitle.fontStyle = FontStyles.Italic;
+            subtitle.lineSpacing = 8f;
 
-            scoreText = Label(f, "", 30f, Amber, TextAlignmentOptions.Center);
-            Place(scoreText.rectTransform, 0.5f, 1f, new Vector2(0f, -285f), new Vector2(1000f, 44f));
+            var stampGo = new GameObject("Stamp", typeof(RectTransform));
+            stampRt = (RectTransform)stampGo.transform;
+            stampRt.SetParent(paper, false);
+            Place(stampRt, 1f, 1f, new Vector2(-80f - 190f, -270f), new Vector2(380f, 150f));
+            stampRt.localRotation = Quaternion.Euler(0f, 0f, 7f);
+            stampBars.Clear();
+            StampBar(new Vector2(0f, 0f), new Vector2(0f, 1f));
+            StampBar(new Vector2(1f, 0f), new Vector2(1f, 1f));
+            StampBar(new Vector2(0f, 0f), new Vector2(1f, 0f));
+            StampBar(new Vector2(0f, 1f), new Vector2(1f, 1f));
+            title = Label(stampRt, "", 52f, StampRed, TextAlignmentOptions.Center);
+            Stretch(title.rectTransform);
+            title.rectTransform.offsetMin = new Vector2(16f, 8f); title.rectTransform.offsetMax = new Vector2(-16f, -8f);
+            title.fontStyle = FontStyles.Bold;
+            title.characterSpacing = 2f;
+            title.enableAutoSizing = true; title.fontSizeMin = 28f; title.fontSizeMax = 52f;
+            title.textWrappingMode = TextWrappingModes.Normal;
 
-            goodText = Column(f, "YAPTIKLARIN", Good, -420f);
-            badText = Column(f, "YAPAMADIKLARIN", Bad, 420f);
+            scoreText = Label(paper, "", 24f, InkSoft, TextAlignmentOptions.MidlineLeft);
+            Place(scoreText.rectTransform, 0f, 1f, new Vector2(80f + 540f, -392f), new Vector2(1080f, 36f));
+            Rule(paper, -420f, 1f);
 
+            goodText = Column(paper, "Doğru yapılanlar", 80f);
+            badText = Column(paper, "Hatalar", 660f);
+
+            // Düğmeler: düz, mürekkep rengi
             var buttons = new GameObject("Buttons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             var brt = (RectTransform)buttons.transform;
-            brt.SetParent(f, false);
-            Place(brt, 0.5f, 0f, new Vector2(0f, 70f), new Vector2(760f, 80f));
+            brt.SetParent(paper, false);
+            Place(brt, 0.5f, 0f, new Vector2(0f, 70f), new Vector2(640f, 68f));
             var h = buttons.GetComponent<HorizontalLayoutGroup>();
-            h.spacing = 30f; h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = true;
-            Button(brt, "ANA MENÜ", true, ToMenu);
-            var quit = Button(brt, "OYUNDAN ÇIK", false, Quit);
+            h.spacing = 24f; h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = true;
+            Button(brt, "Ana menüye dön", true, ToMenu);
+            var quit = Button(brt, "Oyundan çık", false, Quit);
 #if UNITY_WEBGL && !UNITY_EDITOR
             quit.SetActive(false);
 #endif
             finish.SetActive(false);
         }
 
-        TextMeshProUGUI Column(RectTransform parent, string header, Color color, float x)
+        static readonly Color Paper = new Color(0.937f, 0.914f, 0.859f);
+        static readonly Color PaperInk = new Color(0.13f, 0.12f, 0.11f);
+        static readonly Color InkSoft = new Color(0.40f, 0.38f, 0.35f);
+        static readonly Color StampRed = new Color(0.70f, 0.20f, 0.16f);
+        static readonly Color StampGreen = new Color(0.18f, 0.47f, 0.27f);
+        static readonly Color StampOchre = new Color(0.55f, 0.42f, 0.10f);
+
+        RectTransform stampRt;
+        readonly List<Image> stampBars = new List<Image>();
+
+        void StampBar(Vector2 aMin, Vector2 aMax)
         {
-            var box = Panel(parent, header, new Color(1f, 1f, 1f, 0.05f));
-            var rt = (RectTransform)box.transform;
-            Place(rt, 0.5f, 0.5f, new Vector2(x, -70f), new Vector2(780f, 560f));
-            var head = Label(rt, header, 34f, color, TextAlignmentOptions.TopLeft);
-            Place(head.rectTransform, 0f, 1f, new Vector2(390f, -42f), new Vector2(720f, 50f));
+            var go = new GameObject("Bar", typeof(RectTransform), typeof(Image));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(stampRt, false);
+            rt.anchorMin = aMin; rt.anchorMax = aMax;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(6f, 6f);
+            var img = go.GetComponent<Image>();
+            img.color = StampRed;
+            img.raycastTarget = false;
+            stampBars.Add(img);
+        }
+
+        void SetStampColor(Color c)
+        {
+            c.a = 0.88f; // mürekkep hafif soluk
+            foreach (var b in stampBars) if (b != null) b.color = c;
+            if (title != null) title.color = c;
+        }
+
+        static void Rule(RectTransform paper, float y, float thickness)
+        {
+            var line = Panel(paper, "Rule", new Color(0.13f, 0.12f, 0.11f, 0.55f));
+            var rt = (RectTransform)line.transform;
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(80f, y - thickness * 0.5f); rt.offsetMax = new Vector2(-80f, y + thickness * 0.5f);
+        }
+
+        TextMeshProUGUI Column(RectTransform paper, string header, float left)
+        {
+            var head = Label(paper, header, 28f, PaperInk, TextAlignmentOptions.MidlineLeft);
+            Place(head.rectTransform, 0f, 1f, new Vector2(left + 250f, -462f), new Vector2(500f, 40f));
             head.fontStyle = FontStyles.Bold;
-            head.characterSpacing = 6f;
-            var line = Panel(rt, "Line", color);
-            Place((RectTransform)line.transform, 0f, 1f, new Vector2(390f, -78f), new Vector2(720f, 3f));
-            var body = Label(rt, "", 26f, new Color(0.92f, 0.93f, 0.94f), TextAlignmentOptions.TopLeft);
-            Place(body.rectTransform, 0f, 1f, new Vector2(390f, -96f - 220f), new Vector2(720f, 440f));
+            var body = Label(paper, "", 22f, PaperInk, TextAlignmentOptions.TopLeft);
+            Place(body.rectTransform, 0f, 1f, new Vector2(left + 250f, -490f - 160f), new Vector2(500f, 320f));
             body.textWrappingMode = TextWrappingModes.Normal;
             body.enableAutoSizing = true;
-            body.fontSizeMin = 16f; body.fontSizeMax = 26f;
-            body.lineSpacing = 10f;
+            body.fontSizeMin = 15f; body.fontSizeMax = 22f;
+            body.lineSpacing = 6f;
             return body;
         }
 
@@ -370,17 +536,16 @@ namespace LoadBearing
             go.GetComponent<Image>().color = Color.white;
             var btn = go.GetComponent<Button>();
             var c = btn.colors;
-            c.normalColor = primary ? Amber : new Color(1f, 1f, 1f, 0.10f);
-            c.highlightedColor = primary ? new Color(1f, 0.82f, 0.38f) : new Color(1f, 1f, 1f, 0.24f);
-            c.pressedColor = primary ? new Color(0.78f, 0.55f, 0.15f) : new Color(1f, 1f, 1f, 0.34f);
+            c.normalColor = primary ? PaperInk : new Color(0.13f, 0.12f, 0.11f, 0.06f);
+            c.highlightedColor = primary ? new Color(0.25f, 0.23f, 0.21f) : new Color(0.13f, 0.12f, 0.11f, 0.14f);
+            c.pressedColor = primary ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.13f, 0.12f, 0.11f, 0.22f);
             c.selectedColor = c.normalColor;
             c.fadeDuration = 0.08f;
             btn.colors = c;
             btn.onClick.AddListener(onClick);
-            var label = Label((RectTransform)go.transform, text, 32f, primary ? Ink : Color.white, TextAlignmentOptions.Center);
+            var label = Label((RectTransform)go.transform, text, 26f, primary ? Paper : PaperInk, TextAlignmentOptions.Center);
             Stretch(label.rectTransform);
-            label.fontStyle = FontStyles.Bold;
-            label.characterSpacing = 4f;
+            label.fontStyle = primary ? FontStyles.Bold : FontStyles.Normal;
             return go;
         }
 

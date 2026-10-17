@@ -19,10 +19,10 @@ MonoBehaviour:
   ada: 15
   parsel: 2
   areaM2: 180
-  floors: 4
+  floors: 5
   use: Konut
   licenseNo: "\u0130MO-2213"
-  soil: 0
+  soil: 2
   inFloodZone: 0
   onFaultLine: 0
   mapPixel: {x: 3200, y: 2184}
@@ -31,7 +31,8 @@ MonoBehaviour:
   voicePitch: 0.95
   body: 0
   variantMaterial: {fileID: 0}
-  greeting: "Be\u015F \xE7ocuk, bir babaanne. D\xF6rt kat laz\u0131m bize."
+  characterPrefab: {fileID: 6349494310776745682, guid: 6091e570782d2ad43aae8c3a1e475703, type: 3}
+  greeting: "Be\u015F \xE7ocuk, bir babaanne. Be\u015F kat laz\u0131m bize."
   approveLine: "Sa\u011F ol karde\u015Fim, sa\u011F ol!"
   rejectLine: "Peki biz nereye s\u0131\u011Faca\u011F\u0131z..."
   expectedValid: 0

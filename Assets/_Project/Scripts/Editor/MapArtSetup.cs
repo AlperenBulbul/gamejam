@@ -19,8 +19,8 @@ namespace LoadBearing.EditorTools
         // Tasarımcının teslim notu, bölüm 4 (piksel, sol üst = 0,0)
         static readonly (string id, Vector2 px)[] Pixels =
         {
-            ("C1", new Vector2(744, 760)), ("C2", new Vector2(2876, 640)), ("C3", new Vector2(2028, 248)),
-            ("C4", new Vector2(3200, 2184)), ("C5", new Vector2(1240, 1664)), ("C6", new Vector2(4508, 1552)),
+            ("C1", new Vector2(744, 760)), ("C2", new Vector2(2876, 640)), ("C3", new Vector2(3600, 932)), // 47: fay hattı (1. gün yanlış)
+            ("C4", new Vector2(3200, 2184)), ("C5", new Vector2(1240, 1664)), ("C6", new Vector2(2028, 248)), // 3: dere yatağı (2. gün yanlış)
             ("C7", new Vector2(4180, 540)),
         };
 

@@ -57,6 +57,19 @@ namespace LoadBearing
 
         void Awake() => Instance = this;
 
+        // ------------------------------------------------------------------ "Monitöre git"
+
+        const float NudgeDelay = 5f;
+        bool wantMonitor;
+        float awayTime;
+
+        void Update()
+        {
+            if (wantMonitor && !OnMonitor && !PauseMenu.IsPaused) awayTime += Time.deltaTime;
+            else awayTime = 0f;
+            PromptBar.Set("monitor", wantMonitor && awayTime >= NudgeDelay ? "<b>Monitöre</b> git" : null);
+        }
+
         void OnEnable() => GameEvents.StateChanged += OnStateChanged;
         void OnDisable() => GameEvents.StateChanged -= OnStateChanged;
 
@@ -106,6 +119,7 @@ namespace LoadBearing
 
             Show(radioGlow, true);
             Show(monitorGlow, true);
+            wantMonitor = true; // 5 sn içinde monitöre geçmezse altta "Monitöre git" yazar
             foreach (var line in call) yield return RadioLine(line);
             Show(radioGlow, false);
 
@@ -141,6 +155,7 @@ namespace LoadBearing
                 yield return null;
             }
             playing = false;
+            wantMonitor = false;
             Show(monitorGlow, false);
 
             // ---- Sonuç
@@ -173,6 +188,9 @@ namespace LoadBearing
         {
             StopAllCoroutines();
             running = playing = false;
+            wantMonitor = false;
+            awayTime = 0f;
+            PromptBar.Set("monitor", null);
             screenOn = false;
             IntroOpen = false;
             var intro = transform.Find("MinigameIntro");
@@ -211,7 +229,7 @@ namespace LoadBearing
         }
 
         /// Fare, monitör ekranının neresinde (1280 × 720 tasarım koordinatı, sol üst 0,0)
-        bool PointerOnScreen(out Vector2 px)
+        public bool PointerOnScreen(out Vector2 px)
         {
             px = default;
             var mv = FindAnyObjectByType<MonitorView>();
@@ -495,8 +513,8 @@ namespace LoadBearing
         {
             if (stripText == null || game == null) return;
             stripText.text = "REC   " + game.Strip;
-            int total = (site != null ? site.defects : 0) + (playing ? game.Defects : 0);
-            defectText.text = $"KUSUR: {total}";
+            int total = game.Defects; // sadece bu minigame'in hataları
+            defectText.text = $"HATA: {total}";
             defectText.color = total > 0 ? new Color(0.949f, 0.757f, 0.306f) : new Color(0.875f, 0.906f, 0.925f);
         }
 
@@ -541,11 +559,8 @@ namespace LoadBearing
             if (cardCaption != null) cardCaption.gameObject.SetActive(false);
         }
 
-        static void Blink(TextMeshProUGUI t)
-        {
-            if (t == null) return;
-            var c = t.color; c.a = 0.45f + 0.55f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 3f)); t.color = c;
-        }
+        static readonly Color PaperWhite = new Color(0.95f, 0.93f, 0.88f);
+        static readonly Color SoftWhite = new Color(0.82f, 0.80f, 0.75f);
 
         // ------------------------------------------------------------------ tanıtım (ekran bulanık)
 
@@ -557,13 +572,12 @@ namespace LoadBearing
         {
             yield return Overlay((root, Label) =>
             {
-                // Başlık (sarı) + tek cümle: "Bantta [görsel] görünce çıkart"
-                var title = Label(game.IntroTitle, 190f, 60f, new Color(0.95f, 0.70f, 0.20f), FontStyles.Bold);
-                title.characterSpacing = 3f;
+                // Başlık + tek cümle: "Topla: [görsel] gerisini banttan at"
+                Label(game.IntroTitle, 190f, 64f, PaperWhite, FontStyles.Bold);
 
                 const float rowY = -10f, rowSize = 46f, gap = 26f;
-                var before = Label(game.IntroBefore, rowY, rowSize, Color.white, FontStyles.Bold);
-                var after = Label(game.IntroAfter, rowY, rowSize, Color.white, FontStyles.Bold);
+                var before = Label(game.IntroBefore, rowY, rowSize, PaperWhite, FontStyles.Normal);
+                var after = Label(game.IntroAfter, rowY, rowSize, PaperWhite, FontStyles.Normal);
                 float wb = string.IsNullOrEmpty(game.IntroBefore) ? 0f : before.GetPreferredValues(game.IntroBefore).x;
                 float wa = string.IsNullOrEmpty(game.IntroAfter) ? 0f : after.GetPreferredValues(game.IntroAfter).x;
                 var vsize = game.IntroVisualSize;
@@ -581,7 +595,7 @@ namespace LoadBearing
                 vrt.sizeDelta = vsize;
                 vrt.anchoredPosition = new Vector2(x0 + wb + gap + vsize.x * 0.5f, rowY);
                 game.BuildIntroVisual(vrt);
-            }, "BAŞLATMAK İÇİN TIKLAYIN");
+            }, "Başla");
         }
 
         /// Oyun sonu: bulanık ekranda sonuç, tıklayınca devam
@@ -589,13 +603,14 @@ namespace LoadBearing
         {
             yield return Overlay((root, Label) =>
             {
-                Label(defects == 0 ? "TEMİZ İŞ!" : $"KUSUR +{defects}", 200f, 72f,
-                      defects == 0 ? new Color(0.45f, 0.95f, 0.5f) : new Color(1f, 0.42f, 0.35f), FontStyles.Bold);
-                var body = Label(game.Summary, 10f, 40f, Color.white, FontStyles.Normal);
+                // Skor (0-100): sade, renkli trafik ışığı yok + kısa özet
+                int score = Mathf.Clamp(game.Score, 0, 100);
+                Label($"Şantiye {siteLetter}  ·  {(game is MixerGame ? "Mikser kontrolü" : "Kolon dökümü")}", 280f, 28f, SoftWhite, FontStyles.Normal);
+                Label($"{score}<size=40%><color=#A9A396> / 100</color></size>", 175f, 110f, PaperWhite, FontStyles.Bold);
+                var body = Label(game.Summary, 10f, 36f, PaperWhite, FontStyles.Normal);
                 body.rectTransform.sizeDelta = new Vector2(1400f, 220f);
                 body.lineSpacing = 10f;
-                if (defects > 0) Label($"Şantiye {siteLetter} binasına yazıldı", -130f, 32f, new Color(0.95f, 0.70f, 0.20f), FontStyles.Normal);
-            }, "DEVAM ETMEK İÇİN TIKLAYIN");
+            }, "Devam");
         }
 
         /// Ekranı bulanıklaştırıp içerik gösterir, tıklayana (sol tık / Boşluk / Enter) kadar bekler
@@ -638,13 +653,31 @@ namespace LoadBearing
                 t.text = text; t.fontSize = size; t.color = c; t.fontStyle = style;
                 t.alignment = TextAlignmentOptions.Center;
                 t.textWrappingMode = TextWrappingModes.NoWrap;
-                t.outlineWidth = 0.2f; t.outlineColor = new Color32(0, 0, 0, 200);
+                t.outlineWidth = 0.12f; t.outlineColor = new Color32(0, 0, 0, 160);
                 t.raycastTarget = false;
                 return t;
             }
 
             build(root, Label);
-            var hint = Label(hintText, -260f, 34f, new Color(0.85f, 0.88f, 0.9f), FontStyles.Bold);
+
+            // Altta sabit küçük ipucu: [sol tık] Başla / Devam
+            var hintRow = new GameObject("Hint", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var hr = (RectTransform)hintRow.transform;
+            hr.SetParent(root, false);
+            hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0.5f);
+            hr.anchoredPosition = new Vector2(0f, -260f);
+            hr.localScale = Vector3.one * 1.4f;
+            var hl = hintRow.GetComponent<HorizontalLayoutGroup>();
+            hl.spacing = 10f; hl.childAlignment = TextAnchor.MiddleCenter;
+            hl.childControlWidth = hl.childControlHeight = true;
+            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
+            var hfit = hintRow.GetComponent<ContentSizeFitter>();
+            hfit.horizontalFit = hfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            KeyIcons.Add(hr, "LMB", null);
+            var hint = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            hint.transform.SetParent(hr, false);
+            hint.text = hintText; hint.fontSize = 24f; hint.color = SoftWhite;
+            hint.textWrappingMode = TextWrappingModes.NoWrap; hint.raycastTarget = false;
 
             IntroOpen = true;
             for (float t = 0f; t < 0.25f; t += Time.unscaledDeltaTime) { group.alpha = t / 0.25f; yield return null; }
@@ -654,7 +687,6 @@ namespace LoadBearing
             while (true)
             {
                 wait += Time.unscaledDeltaTime;
-                Blink(hint);
                 var m = Mouse.current; var kb = Keyboard.current;
                 bool click = (m != null && m.leftButton.wasPressedThisFrame) ||
                              (kb != null && (kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame));

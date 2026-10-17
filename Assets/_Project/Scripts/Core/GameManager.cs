@@ -45,13 +45,29 @@ namespace LoadBearing
             if (GetComponent<TutorialHints>() == null) gameObject.AddComponent<TutorialHints>();             // ilk tur göstergeleri
             if (GetComponent<GuidedTour>() == null) gameObject.AddComponent<GuidedTour>();                   // hazır oynatılan ilk tur
             if (GetComponent<DeskMug>() == null) gameObject.AddComponent<DeskMug>();                         // masadaki ODTÜ kupası
+            if (GetComponent<UiTextScale>() == null) gameObject.AddComponent<UiTextScale>();                 // ekran yazıları bir tık büyük
+            if (GetComponent<SiteWatch>() == null) gameObject.AddComponent<SiteWatch>();                     // monitörde kaytaran işçiyi uyarma
             if (GetComponent<PauseMenu>() == null) gameObject.AddComponent<PauseMenu>();                     // Esc: duraklatma menüsü
             if (GetComponent<MinigameDirector>() == null) gameObject.AddComponent<MinigameDirector>();       // gün sonu monitör minigame'i
             if (GetComponent<EndScreenUI>() == null) gameObject.AddComponent<EndScreenUI>();                 // gün geçişi + bitiş ekranı
             NewRun();
         }
 
-        void Start() => ChangeState(GameState.MainMenu);
+        void Start()
+        {
+            HideCounterGlass();
+            ChangeState(GameState.MainMenu);
+        }
+
+        /// Müşteriyle aramızdaki cam kaldırıldı (görünmez; cam sallanma efekti için nesne yerinde kalır)
+        static void HideCounterGlass()
+        {
+            var glass = GameObject.Find("Counter/Glass");
+            if (glass != null)
+                foreach (var r in glass.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+            foreach (var r in FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (r != null && (r.name.StartsWith("SM_CounterGlass_Glass") || r.name.StartsWith("SM_CounterGlass_Streak"))) r.enabled = false;
+        }
 
         public void NewRun() => Run = new RunState(config);
 
@@ -104,7 +120,16 @@ namespace LoadBearing
         void FinishWorkingDay()
         {
             if (State != GameState.Working) return;
-            // Son gün: minigame bitti, bitiş ekranı (kazandın / kaybettin)
+            // Gün sonu denetimi (GDD v3.2 Eki): ilk tutan kovulma nedeni -> kovulma sonu
+            var reason = EndingRules.Inspect(Run, Run.day, Config);
+            if (reason != FireReason.None)
+            {
+                Run.fireReason = reason;
+                Debug.Log($"[Denetim] Gün {Run.day}: kovuldun ({reason})");
+                ChangeState(GameState.Ending);
+                return;
+            }
+            // Son gün: deprem + sel sonucu ve son (EndingRules.Resolve), bitiş ekranı
             if (IsLastDay) { ChangeState(GameState.Ending); return; }
             // 1. gün bitti: doğrudan ertesi güne geç (fiş / dükkân ekranları henüz yok)
             GameEvents.RaiseDayEnded(Run.day);

@@ -202,7 +202,7 @@ namespace LoadBearing.EditorTools
             var st = feed.stripText.rectTransform;
             st.anchorMin = new Vector2(0, 0); st.anchorMax = new Vector2(1, 1); st.offsetMin = new Vector2(44, 0); st.offsetMax = new Vector2(-200, 0);
 
-            feed.defectText = Text("DefectText", strip, "KUSUR: 0", 26, Amber, TextAlignmentOptions.MidlineRight);
+            feed.defectText = Text("DefectText", strip, "HATA: 0", 26, Amber, TextAlignmentOptions.MidlineRight);
             var dt = feed.defectText.rectTransform;
             dt.anchorMin = new Vector2(1, 0); dt.anchorMax = new Vector2(1, 1); dt.pivot = new Vector2(1, 0.5f);
             dt.sizeDelta = new Vector2(200, 0); dt.anchoredPosition = new Vector2(-24, 0);

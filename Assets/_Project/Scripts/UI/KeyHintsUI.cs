@@ -67,12 +67,7 @@ namespace LoadBearing
 
         void PlayIntro(FocusState f)
         {
-            // İlk tur oynandıysa (ya da oynuyorsa) ortadaki tanıtım hiç çıkmaz: liste hep sağ altta
-            if (root == null || introduced.Contains(f) || GuidedTour.Running || GuidedTour.ActiveThisRun) return;
-            if (f != FocusState.Folder && f != FocusState.Map && f != FocusState.Binder && f != FocusState.Monitor && f != FocusState.Newspaper) return;
-            introduced.Add(f);
-            if (introRoutine != null) StopCoroutine(introRoutine);
-            introRoutine = StartCoroutine(Intro());
+            // Ortadaki bulanık tanıtım kaldırıldı: liste hep sağ altta (ilk turu GuidedTour anlatıyor)
         }
 
         System.Collections.IEnumerator Intro()
@@ -248,7 +243,7 @@ namespace LoadBearing
                         : new[] { ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Monitor:
                     if (MinigameDirector.Hints != null) return Normalize(MinigameDirector.Hints);
-                    return new[] { ("{A} {D}", "Kanal değiştir"), ("{1-7}", "Kanal seç"), ("{RMB} / {ESC}", "Geri") };
+                    return new[] { ("{LMB} ünlemli işçi", "Uyar"), ("{A} {D}", "Kanal değiştir"), ("{1-7}", "Kanal seç"), ("{RMB} / {ESC}", "Geri") };
                 case FocusState.Newspaper:
                     return state == GameState.DayIntro
                         ? new[] { ("{ENTER}", "Güne başla"), ("{RMB} / {ESC}", "Geri") }

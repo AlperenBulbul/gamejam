@@ -254,8 +254,9 @@ namespace LoadBearing
             {
                 if (valid) { run.AddWrongfulReject(cfg); AddHeadline(run, "WrongfulReject"); }
                 else AddHeadline(run, "CorrectReject");
-                if (run.bribeTakenCurrent) run.AddPenalty("BribeReject", cfg);
+                // v3.2: rüşvet + ret cezası kalktı; zarf alındıysa gün sonunda kovulma (EndingRules)
             }
+            EndingRules.RecordDecision(run, c, approved, valid, cfg);
 
             run.decisions.Add(new Decision { customerId = c.id, approved = approved, valid = valid });
             folder.MarkDecided(approved);

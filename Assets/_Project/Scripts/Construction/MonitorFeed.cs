@@ -243,8 +243,8 @@ namespace LoadBearing
             }
             if (defectText != null)
             {
-                defectText.gameObject.SetActive(site != null);
-                if (site != null) defectText.text = $"KUSUR: {site.defects}";
+                // Hata sayacı sadece minigame ekranında (MinigameDirector kendi şeridini çizer)
+                defectText.gameObject.SetActive(false);
             }
             if (recDot != null) recDot.enabled = Mathf.Repeat(Time.time, 1f) < 0.6f;
             if (timeText != null)
