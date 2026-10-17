@@ -44,7 +44,10 @@ namespace LoadBearing.EditorTools
             var log = new List<string>();
 
             // ---- 1) Dosyaları kopyala
-            if (!CopyFiles(log)) { Debug.LogError("[Load Bearing] Revize klasörü bulunamadı:\n" + string.Join("\n", log)); return; }
+            // Revize klasörü sadece dosyaları ilk getiren bilgisayarda var. Dosyalar zaten Assets/Art'ta (git ile geliyor),
+            // klasör yoksa kopyalama atlanır ve kurulum projedeki dosyalarla devam eder.
+            if (!CopyFiles(log))
+                Debug.LogWarning("[Load Bearing] Revize klasörü yok, kopyalama atlandı. Projedeki Assets/Art dosyaları kullanılıyor.\n" + string.Join("\n", log));
 
             // ---- 2) İçe aktarma ayarları ve materyaller (menü 13)
             ArtImportSetup.Run();
