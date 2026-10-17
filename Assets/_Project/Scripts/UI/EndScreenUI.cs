@@ -210,6 +210,7 @@ namespace LoadBearing
             EndingId.Jail_Flood => "CIN_End_Jail_Flood",
             EndingId.Jail_Bribe => "CIN_End_Jail_Bribe",
             EndingId.Fired_FaultLine => "CIN_End_Fired_Fault",
+            EndingId.Fired_DailyMistakes => "CIN_End_Fired_Fault",   // "Bir kez hata denir. İkincisi dosya olur."
             EndingId.Fired_Flood => "CIN_End_Fired_Flood",
             EndingId.Fired_WrongfulRejects => "CIN_End_Fired_NoPermit",
             EndingId.Fired_Penalties => "CIN_End_Fired_TurnedAway",
@@ -403,7 +404,8 @@ namespace LoadBearing
                 }
             }
             if (faultsFixed > 0) good.Add($"{faultsFixed} hatalı işçiyi yakaladın");
-            if (fired) bad.Insert(0, $"<b>{EndingRules.ReasonLabel(end.id)}</b> (gün {run.day} sonu denetimi)");
+            if (fired) bad.Insert(0, $"<b>{EndingRules.ReasonLabel(end.id)}</b> " +
+                                     (run.pendingFired ? $"(gün {run.day}, ikinci yanlış mühür)" : $"(gün {run.day} sonu denetimi)"));
         }
 
         void ToMenu()

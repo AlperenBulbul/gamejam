@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LoadBearing
 {
     /// Gün sonu denetiminde ilk tutan kovulma nedeni (GDD v3.2 Eki, bölüm 3)
-    public enum FireReason { None, Bribe, FaultLine, Flood, WrongfulRejects, Penalties, Bankrupt }
+    public enum FireReason { None, Bribe, FaultLine, Flood, WrongfulRejects, Penalties, Bankrupt, DailyMistakes }
 
     /// Kurallara aykırı onayın türü (Validator'la aynı sıra: ilk tutan sayılır)
     public enum WrongApproval { None, FaultLine, Flood, FloorLimit, Soil }
@@ -18,6 +18,7 @@ namespace LoadBearing
     {
         Jail_Bribe, Fired_FaultLine, Fired_Flood, Fired_WrongfulRejects, Fired_Penalties, Fired_Bankrupt,
         Jail_Quake, Jail_Flood, NoOneDied, StillOnTheJob,
+        Fired_DailyMistakes,   // aynı gün 2 yanlış mühür
     }
 
     public struct EndingResult
@@ -47,20 +48,44 @@ namespace LoadBearing
             return WrongApproval.None;
         }
 
-        /// Mühür basıldığında: sayaçlar ve rüşvet günü (StampController çağırır)
+        /// Mühür basıldığında: sayaçlar ve rüşvet günü (StampController çağırır).
+        /// Aynı gün 2. yanlış mühürde oyun biter (müşteri gişeden çıkınca son sinematiği).
         public static void RecordDecision(RunState run, CustomerData c, bool approved, bool valid, GameConfig cfg)
         {
             if (run == null || c == null) return;
-            if (approved && !valid)
+            // Zarf alındıysa karar ne olursa olsun o günün sonunda hapis
+            if (run.bribeTakenCurrent) run.bribeTakenDay = run.day;
+
+            if (approved == valid) return;
+            var type = WrongApproval.None;
+            if (approved)
             {
-                var type = Classify(c, run.day, cfg);
+                type = Classify(c, run.day, cfg);
                 run.wrongApprovalIds.Add(c.id);
                 run.wrongApprovalTypes.Add(type);
                 if (type == WrongApproval.FaultLine) run.faultLineApprovals++;
                 if (type == WrongApproval.Flood) run.floodApprovals++;
             }
-            // Zarf alındıysa karar ne olursa olsun o günün sonunda kovulma
-            if (run.bribeTakenCurrent) run.bribeTakenDay = run.day;
+
+            if (run.mistakesDay != run.day)
+            {
+                run.mistakesDay = run.day;
+                run.mistakesToday = run.wrongRejectsToday = run.floodApprovalsToday = 0;
+            }
+            run.mistakesToday++;
+            if (!approved) run.wrongRejectsToday++;
+            else if (type == WrongApproval.Flood) run.floodApprovalsToday++;
+
+            int limit = cfg != null ? cfg.dailyMistakeLimit : 2;
+            if (run.mistakesToday >= limit && run.fireReason == FireReason.None)
+            {
+                run.fireReason = run.bribeTakenDay == run.day ? FireReason.Bribe
+                               : run.wrongRejectsToday >= limit ? FireReason.WrongfulRejects
+                               : run.floodApprovalsToday >= limit ? FireReason.Flood
+                               : FireReason.DailyMistakes;
+                run.pendingFired = true;
+                Debug.Log($"[Denetim] Gün {run.day}: bugün {run.mistakesToday}. yanlış mühür, oyun bitiyor ({run.fireReason})");
+            }
         }
 
         // ------------------------------------------------------------------ gün sonu denetimi
@@ -149,6 +174,7 @@ namespace LoadBearing
             FireReason.Flood => EndingId.Fired_Flood,
             FireReason.WrongfulRejects => EndingId.Fired_WrongfulRejects,
             FireReason.Penalties => EndingId.Fired_Penalties,
+            FireReason.DailyMistakes => EndingId.Fired_DailyMistakes,
             _ => EndingId.Fired_Bankrupt,
         };
 
@@ -161,6 +187,7 @@ namespace LoadBearing
                 case EndingId.Jail_Quake: r.title = "HAPİS"; r.body = "Mühür senin, imza senin. Deprem birkaç saniye sürdü; dava yıllarca sürecek."; break;
                 case EndingId.Jail_Flood: r.title = "HAPİS"; r.body = "Dere yatağını herkes biliyordu. Haritada da yazıyordu. Su da biliyordu."; break;
                 case EndingId.Jail_Bribe: r.title = "HAPİS"; r.body = "Zarf çekmecende bir gün bile durmadı. Müfettişler akşam geldi."; break;
+                case EndingId.Fired_DailyMistakes: r.title = "KOVULDUN"; r.body = "Bir kez hata denir. İkincisi dosya olur."; break;
                 case EndingId.Fired_FaultLine: r.title = "KOVULDUN"; r.body = "Bir kez hata denir. İkincisi dosya olur."; break;
                 case EndingId.Fired_Flood: r.title = "KOVULDUN"; r.body = "İki aileyi dere kenarına yerleştirdin. Belediye seni yerinden etti."; break;
                 case EndingId.Fired_WrongfulRejects: r.title = "KOVULDUN"; r.body = "Hiç bina yıkılmadı, çünkü hiç bina yapılmadı."; break;
@@ -181,6 +208,7 @@ namespace LoadBearing
             EndingId.Fired_WrongfulRejects => "Kovuldun — Ruhsat Vermeyen Denetçi",
             EndingId.Fired_Penalties => "Kovuldun — Kapıdan Çevrilenler",
             EndingId.Fired_Bankrupt => "Kovuldun — İflas",
+            EndingId.Fired_DailyMistakes => "Kovuldun — Bir günde iki yanlış mühür",
             EndingId.Jail_Quake => "Hapis — Deprem",
             EndingId.Jail_Flood => "Hapis — Sel",
             EndingId.NoOneDied => "Kimse Ölmedi",

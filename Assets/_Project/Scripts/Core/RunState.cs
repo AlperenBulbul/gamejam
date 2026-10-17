@@ -36,6 +36,12 @@ namespace LoadBearing
         public List<WrongApproval> wrongApprovalTypes = new List<WrongApproval>();
         public FireReason fireReason = FireReason.None;
 
+        // Günlük yanlış mühür sayacı (2 olunca oyun o müşteri çıkınca biter)
+        public int mistakesDay;          // sayaçların ait olduğu gün
+        public int mistakesToday;
+        public int wrongRejectsToday;
+        public int floodApprovalsToday;
+
         // Sonlar
         public bool jailed;
         public bool collapseFired;

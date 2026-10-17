@@ -41,6 +41,7 @@ namespace LoadBearing
         [Header("Kurallar")]
         public int penaltyLimit = 3;
         [Header("Sonlar (GDD v3.2 Eki)")]
+        public int dailyMistakeLimit = 2;       // aynı gün 2 yanlış mühür (yanlış onay ya da haksız ret): oyun hemen biter
         public int faultLineFireLimit = 2;      // toplam fay hattı onayı: gün sonunda kovulma
         public int floodFireLimit = 2;          // toplam taşkın alanı onayı: gün sonunda kovulma
         public int happyMaxSmallMistakes = 1;   // Kimse Ölmedi için en fazla küçük hata

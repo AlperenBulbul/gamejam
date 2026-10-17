@@ -59,6 +59,7 @@ namespace LoadBearing
         float beltOffset, speed = 170f, nextGap, sinceSpawn;
         int spawned, trapsIn, goodTossed, trapsCaught, extraIn, missing;
         readonly int[] have = new int[4];
+        readonly int[] tossedByType = new int[4];
         readonly TextMeshProUGUI[] haveText = new TextMeshProUGUI[4];
         readonly RawImage[] haveIcon = new RawImage[4];
         int Needed { get { int n = 0; foreach (var g in Good) n += g.need; return n; } }
@@ -101,7 +102,18 @@ namespace LoadBearing
             $"Doğru karışım: <b>{Correct} / {Needed}</b>\n" +
             $"Ayıklanan deniz kumu: <b>{trapsCaught} / {Traps}</b>\n" +
             $"Miksere giren fazlalık: <b>{trapsIn + extraIn}</b>";
-        public override int Score => 100 - Defects * 15;
+        /// Banttan geçen her malzeme bir deneme. Doğru: deniz kumunu atmak, tarifteki malzemeyi miksere sokmak,
+        /// tarifin fazlasını atmak (o malzemeden fazlası kadar).
+        public override int Attempts => spawned;
+        public override int Hits
+        {
+            get
+            {
+                int n = trapsCaught;
+                for (int i = 0; i < Good.Length; i++) n += have[i] + Mathf.Min(tossedByType[i], Extra[i]);
+                return n;
+            }
+        }
         public override (string key, string action)[] Hints => new[] { ("Sol tık", "Fazla malzemeyi banttan at"), ("Sağ tık / Esc", "Geri") };
 
         protected override void Build()
@@ -253,6 +265,8 @@ namespace LoadBearing
             else
             {
                 goodTossed++; // tarif eksik kalırsa bant sonunda hata yazılır
+                int gi = System.Array.IndexOf(Good, it.spec);
+                if (gi >= 0) tossedByType[gi]++;
                 Popup("ATILDI", at, new Color(0.85f, 0.88f, 0.9f), 26f);
             }
         }

@@ -7,7 +7,7 @@ namespace LoadBearing
 {
     /// Belge ile harita / kural klasörü arasında kısayollar:
     ///  - Formda ARSA NO satırının sağında mavi HARİTA düğmesi: tıklayınca doğrudan haritaya geçer
-    ///  - ARSA ALANI, İSTENEN KAT ve ZEMİN ETÜDÜ satırlarında kırmızı KURAL düğmesi: kural klasörü ilgili sayfada açılır
+    ///  - İSTENEN KAT ve ZEMİN ETÜDÜ satırlarında kırmızı KURAL düğmesi (ARSA ALANI'ndaki kaldırıldı: ikisi aynı sayfaya gidiyordu): kural klasörü ilgili sayfada açılır
     ///  - Harita / kural klasöründeyken ekranın sağ üstünde "BELGEYE DÖN" düğmesi (ya da Tab): doğrudan belgeye döner
     /// FolderView bu bileşeni kendisi ekler.
     public class DocLinks : MonoBehaviour
@@ -22,7 +22,6 @@ namespace LoadBearing
         {
             folder = f;
             if (parcel != null) mapBtn = AddLink(parcel, "Map", MapIcon(), "Haritaya git", () => Go(FocusState.Map, null));
-            if (area != null) AddLink(area, "Rules", BookIcon(), "Kurala bak", () => Go(FocusState.Binder, "kat"));
             if (floors != null) floorsBtn = AddLink(floors, "Rules", BookIcon(), "Kurala bak", () => Go(FocusState.Binder, "kat"));
             if (soil != null) AddLink(soil, "Rules", BookIcon(), "Kurala bak", () => Go(FocusState.Binder, "zemin"));
             BuildBackButton();

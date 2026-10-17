@@ -32,7 +32,8 @@ namespace LoadBearing
 
         public override string Title => "KOLON DÖKÜMÜ";
         // Dik dökülen kolon oranı
-        public override int Score => Mathf.RoundToInt(100f * goodTotal / (Floors * 3));
+        public override int Attempts => goodTotal + badTotal;   // dökülen her kolon bir deneme
+        public override int Hits => goodTotal;
         public override string Instructions =>
             "Kabarcık <b><color=#5FD068>YEŞİLDEYKEN</color></b>\n<b><color=#F2B233>TIKLA</color></b>\n\n<size=75%><color=#B8C0C8>Kolon dik dökülsün</color></size>";
         public override string IntroTitle => "Kolonlar eğri dökülüyor";

@@ -117,11 +117,9 @@ namespace LoadBearing
                 : new[] { $"Şefim, {L} şantiyesinde kolonları dökmeye başladık ama kalıplar sallanıyor, şakülünde değil!",
                           "Yarın deprem testi var! Monitörden bak, kolonları dimdik dök ki bina ayakta kalsın!" };
 
-            Show(radioGlow, true);
-            Show(monitorGlow, true);
+            Show(monitorGlow, true); // telsizin etrafında parıltı yok (sadece ses + ışık)
             wantMonitor = true; // 5 sn içinde monitöre geçmezse altta "Monitöre git" yazar
             foreach (var line in call) yield return RadioLine(line);
-            Show(radioGlow, false);
 
             // ---- Oyuncu monitöre baksın
             while (!OnMonitor) yield return null;
@@ -603,10 +601,10 @@ namespace LoadBearing
         {
             yield return Overlay((root, Label) =>
             {
-                // Skor (0-100): sade, renkli trafik ışığı yok + kısa özet
-                int score = Mathf.Clamp(game.Score, 0, 100);
+                // Skor: doğru hamle / toplam deneme (ör. 12 / 16) + kısa özet
+                int tries = Mathf.Max(0, game.Attempts), hits = Mathf.Clamp(game.Hits, 0, tries);
                 Label($"Şantiye {siteLetter}  ·  {(game is MixerGame ? "Mikser kontrolü" : "Kolon dökümü")}", 280f, 28f, SoftWhite, FontStyles.Normal);
-                Label($"{score}<size=40%><color=#A9A396> / 100</color></size>", 175f, 110f, PaperWhite, FontStyles.Bold);
+                Label($"{hits}<size=45%><color=#A9A396> / {tries} doğru</color></size>", 175f, 110f, PaperWhite, FontStyles.Bold);
                 var body = Label(game.Summary, 10f, 36f, PaperWhite, FontStyles.Normal);
                 body.rectTransform.sizeDelta = new Vector2(1400f, 220f);
                 body.lineSpacing = 10f;
