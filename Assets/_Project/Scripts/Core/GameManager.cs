@@ -44,6 +44,8 @@ namespace LoadBearing
             if (GetComponent<ConstructionManager>() == null) gameObject.AddComponent<ConstructionManager>(); // şantiyeler
             if (GetComponent<TutorialHints>() == null) gameObject.AddComponent<TutorialHints>();             // ilk tur göstergeleri
             if (GetComponent<PauseMenu>() == null) gameObject.AddComponent<PauseMenu>();                     // Esc: duraklatma menüsü
+            if (GetComponent<MinigameDirector>() == null) gameObject.AddComponent<MinigameDirector>();       // gün sonu monitör minigame'i
+            if (GetComponent<EndScreenUI>() == null) gameObject.AddComponent<EndScreenUI>();                 // gün geçişi + bitiş ekranı
             NewRun();
         }
 
@@ -91,7 +93,21 @@ namespace LoadBearing
         {
             if (State != GameState.Working) return;
             if (CheckPendingFired()) return;
-            ChangeState(IsLastDay ? GameState.FinalShift : GameState.Receipt);
+            // Önce telsiz + monitör minigame'i (1. gün mikser, 2. gün kolon); bitince gün devam eder
+            var mg = MinigameDirector.Instance;
+            if (mg != null && mg.TryStart(Run.day, FinishWorkingDay)) return;
+            FinishWorkingDay();
+        }
+
+        void FinishWorkingDay()
+        {
+            if (State != GameState.Working) return;
+            // Son gün: minigame bitti, bitiş ekranı (kazandın / kaybettin)
+            if (IsLastDay) { ChangeState(GameState.Ending); return; }
+            // 1. gün bitti: doğrudan ertesi güne geç (fiş / dükkân ekranları henüz yok)
+            GameEvents.RaiseDayEnded(Run.day);
+            Run.day++;
+            ChangeState(GameState.DayIntro);
         }
 
         /// FinalShift: tüm şantiyeler Done / Flooded

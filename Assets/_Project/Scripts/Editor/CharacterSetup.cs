@@ -24,6 +24,7 @@ namespace LoadBearing.EditorTools
 
         const string HasanDir = "Assets/Art/Characters/HasanAmca";
         const string SelinDir = "Assets/Art/Characters/Selin";
+        const string MahmutDir = "Assets/Art/Characters/Mahmut";
 
         [MenuItem("Load Bearing/20 - Müşteri karakterlerini kur", priority = 20)]
         public static void Run()
@@ -50,6 +51,39 @@ namespace LoadBearing.EditorTools
                     ("Angry", angry != null ? angry : talk, 1f),
                 };
                 hasan = BuildCharacter("HasanAmca", $"{HasanDir}/HasanAmca.fbx", $"{HasanDir}/T_Customer_C1_Hasan.png", states, 180f, log);
+            }
+
+            // ---- Mahmut (C2): kendi modeli + dokusu; konuşma / kızgın animasyonları Hasan Amca'nınki (Humanoid, her modele uyar)
+            GameObject mahmut = null;
+            {
+                string model = FindAsset(MahmutDir, "SK_Customer_C2_Mahmut");
+                if (model != null)
+                {
+                    SetupModelImporter(model);
+                    var talk = Clip($"{HasanDir}/HasanAmca@Talking.fbx");
+                    var angry = Clip($"{HasanDir}/HasanAmca@Angry Point.fbx");
+                    AnimationClip dance = null;
+                    foreach (var p in AssetDatabase.FindAssets("t:Model", new[] { MahmutDir }).Select(AssetDatabase.GUIDToAssetPath))
+                    {
+                        if (!p.Contains("@")) continue;
+                        SetupClipImporter(p, "Dance", true); // Mahmut'un kendi animasyonu (döngü)
+                        dance = Clip(p);
+                    }
+                    // Kendi animasyonu (dans) sadece onay alınca 5 sn; yürüme Selin'in yürüyüşü (Humanoid, her modele uyar)
+                    var walkPath = FindAsset(SelinDir, "A_Customer_Selin_Walk");
+                    var walk = walkPath != null ? Clip(walkPath) : null;
+                    var states = new List<(string, Motion, float)>
+                    {
+                        ("Idle", talk, 0f),
+                        ("Talking", talk, 1f),
+                        ("Angry", angry != null ? angry : talk, 1f),
+                    };
+                    if (dance != null) states.Add(("Happy", dance, 1f));
+                    if (walk != null) states.Add(("Walk", walk, 1f));
+                    mahmut = BuildCharacter("Mahmut", model, FindAsset(MahmutDir, "T_Customer_C2_Mahmut"), states, float.NaN, log,
+                                            cc => { cc.standBack = 0.35f; cc.happySeconds = 5f; }); // biraz geride durur, onayda 5 sn dans
+                }
+                else log.Append($"\n - UYARI: Mahmut modeli yok ({MahmutDir}/SK_Customer_C2_Mahmut.fbx)");
             }
 
             // ---- Selin
@@ -104,8 +138,10 @@ namespace LoadBearing.EditorTools
                     foreach (var c in d.customers)
                     {
                         if (c == null) continue;
-                        GameObject want = c.id == "C1" ? hasan : c.id == "C3" ? selin : null;
+                        GameObject want = c.id == "C1" ? hasan : c.id == "C2" ? mahmut : c.id == "C3" ? selin : null;
                         if (c.characterPrefab != want) { c.characterPrefab = want; EditorUtility.SetDirty(c); }
+                        // C2 artık Mahmut (ikinci Hasan Amca yok)
+                        if (c.id == "C2" && mahmut != null && c.displayName != "Mahmut Aydın") { c.displayName = "Mahmut Aydın"; EditorUtility.SetDirty(c); }
                     }
                 }
             }
@@ -167,7 +203,8 @@ namespace LoadBearing.EditorTools
         // ------------------------------------------------------------------ prefab
 
         /// states: (durum adı, klip, hız). defaultYaw: model yönü bulunamazsa kullanılacak açı (NaN = 0)
-        static GameObject BuildCharacter(string name, string modelPath, string texPath, List<(string state, Motion motion, float speed)> states, float defaultYaw, System.Text.StringBuilder log)
+        static GameObject BuildCharacter(string name, string modelPath, string texPath, List<(string state, Motion motion, float speed)> states, float defaultYaw, System.Text.StringBuilder log,
+                                         System.Action<CustomerController> configure = null)
         {
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             var avatar = AssetDatabase.LoadAllAssetsAtPath(modelPath).OfType<Avatar>().FirstOrDefault();
@@ -175,10 +212,13 @@ namespace LoadBearing.EditorTools
             if (avatar == null || !avatar.isHuman) { log.Append($"\n - UYARI: {name} için Humanoid avatar yok (menü 13 / rig)."); return null; }
 
             // Animator Controller
+            // Var olan controller silinmez, içi boşaltılıp yeniden doldurulur: prefablardaki bağlantı kopmasın
+            // (silip yeniden oluşturunca açık olan prefablar "kayıp controller" ile kalıp T-pozda geziyordu)
             string ctrlPath = $"{OutDir}/{name}.controller";
-            AssetDatabase.DeleteAsset(ctrlPath);
-            var ctrl = AnimatorController.CreateAnimatorControllerAtPath(ctrlPath);
+            var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctrlPath);
+            if (ctrl == null) ctrl = AnimatorController.CreateAnimatorControllerAtPath(ctrlPath);
             var sm = ctrl.layers[0].stateMachine;
+            foreach (var cs in sm.states.ToArray()) sm.RemoveState(cs.state);
             AnimatorState first = null;
             foreach (var (state, motion, speed) in states)
             {
@@ -242,8 +282,13 @@ namespace LoadBearing.EditorTools
             }
 
             cc.animator = anim;
-            var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{OutDir}/Customer_{name}.prefab");
+            configure?.Invoke(cc);
+            AssetDatabase.SaveAssets();
+            string prefabPath = $"{OutDir}/Customer_{name}.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate); // bellekteki prefab da tazelensin
+            prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             log.Append($"\n - {name}: boy {height:0.00} m, yön {yaw:0}°, durumlar: {string.Join(", ", states.Where(s => s.motion != null).Select(s => s.state))}{(mat == null ? " (doku yok)" : "")}");
             return prefab;
         }

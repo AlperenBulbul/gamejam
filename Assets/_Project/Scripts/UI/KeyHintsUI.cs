@@ -55,7 +55,7 @@ namespace LoadBearing
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
             var sc = StampController.Instance;
-            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}";
+            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}|{MinigameDirector.Hints != null}";
             if (key != lastKey) { lastKey = key; Refresh(); }
         }
 
@@ -239,6 +239,7 @@ namespace LoadBearing
                 case FocusState.Binder:
                     return new[] { ("Tekerlek / A D", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Monitor:
+                    if (MinigameDirector.Hints != null) return MinigameDirector.Hints;
                     return new[] { ("Monitör < > / A D", "Kanal değiştir"), ("1-7", "Kanal seç"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Newspaper:
                     return state == GameState.DayIntro

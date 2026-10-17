@@ -34,6 +34,10 @@ namespace LoadBearing
         public Color rageColor = new Color(0.85f, 0.15f, 0.12f);
         public DialogueSet dialogue;
         public float reactTime = 1.3f;
+        [Tooltip("Gişede durduğu yer, normal noktanın kaç metre gerisi (karaktere göre)")]
+        public float standBack = 0f;
+        [Tooltip("Onay alınca sevinç animasyonu kaç saniye sürsün (0 = varsayılan)")]
+        public float happySeconds = 0f;
 
         [Header("Animasyon (karakter modeli)")]
         [Tooltip("Boşsa çocuklarda aranır. Greybox gövdede yoktur.")]
@@ -70,6 +74,13 @@ namespace LoadBearing
             Data = data;
             doorPos = door;
             spotPos = spot;
+            if (standBack > 0f)
+            {
+                // Oyuncudan uzağa doğru biraz geride dur
+                var cam = Camera.main;
+                var away = cam != null ? Flat(spot - cam.transform.position).normalized : Flat(door - spot).normalized;
+                spotPos = spot + away * standBack;
+            }
             walkTime = Mathf.Max(0.2f, walkSeconds);
             transform.position = door;
             mpb = new MaterialPropertyBlock();
@@ -353,7 +364,7 @@ namespace LoadBearing
 
         IEnumerator Hop()
         {
-            if (hasReact) { yield return new WaitForSeconds(Mathf.Max(reactTime, 2.2f)); yield break; } // sevinme animasyonu var
+            if (hasReact) { yield return new WaitForSeconds(happySeconds > 0f ? happySeconds : Mathf.Max(reactTime, 2.2f)); yield break; } // sevinme animasyonu var
             for (float t = 0f; t < reactTime; t += Time.deltaTime)
             {
                 float k = t / reactTime;

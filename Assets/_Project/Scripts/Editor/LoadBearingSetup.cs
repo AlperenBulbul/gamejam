@@ -137,7 +137,7 @@ namespace LoadBearing.EditorTools
             //  id    gün  isim                       rol                              ada parsel m²  kat kullanım         ruhsat      zemin            taşkın fay   rüşvet sabır perde
             C("C1", 1, "Hasan ve Emine Yıldız", "Emekli çift", 12, 4, 150, 2, "Konut", "İMO-1047", SoilType.None, false, false, 0, 120, 0.85f, BodyType.Male,
                 "Merhaba evladım. Torunlar gelince sığalım diye küçük bir ev.", "Allah razı olsun evladım!", "Ama... bütün birikimimizi koyduk.", true);
-            C("C2", 1, "Kemal Aydın", "Küçük müteahhit", 7, 19, 320, 4, "Konut", "İMO-2213", SoilType.None, false, false, 0, 90, 1.0f, BodyType.Male,
+            C("C2", 1, "Mahmut Aydın", "Küçük müteahhit", 7, 19, 320, 4, "Konut", "İMO-2213", SoilType.None, false, false, 0, 90, 1.0f, BodyType.Male,
                 "Merhaba. Dereye yakın ama merak etme, her şey hesaplı.", "Teşekkürler, ekip yarın sahada.", "Ölçüleri kendin kontrol et istersen. Pekâlâ.", true);
             C("C3", 1, "Selin Kaya", "Aceleci yatırımcı", 3, 8, 260, 3, "Dükkân + konut", "İMO-3390", SoilType.None, true, false, 0, 60, 1.25f, BodyType.Female,
                 "Acelem var. Damga, imza, bitti.", "Harika. Zaman paradır.", "Ciddi misin. Bu arsaya ne kadar para verdim biliyor musun.", false);

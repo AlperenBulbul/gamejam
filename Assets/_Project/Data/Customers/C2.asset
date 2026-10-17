@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
   id: C2
   day: 1
-  displayName: "Kemal Ayd\u0131n"
+  displayName: "Mahmut Ayd\u0131n"
   role: "K\xFC\xE7\xFCk m\xFCteahhit"
   ada: 7
   parsel: 19
@@ -31,6 +31,7 @@ MonoBehaviour:
   voicePitch: 1
   body: 0
   variantMaterial: {fileID: 0}
+  characterPrefab: {fileID: 8528699815113529832, guid: 1afc8bf604b3f2b438a978fc9a88db27, type: 3}
   greeting: "Merhaba. Dereye yak\u0131n ama merak etme, her \u015Fey hesapl\u0131."
   approveLine: "Te\u015Fekk\xFCrler, ekip yar\u0131n sahada."
   rejectLine: "\xD6l\xE7\xFCleri kendin kontrol et istersen. Pek\xE2l\xE2."

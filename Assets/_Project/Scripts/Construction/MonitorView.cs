@@ -40,6 +40,12 @@ namespace LoadBearing
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
+        static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
+
+        /// Ekran modelinin UV alanı (tasarım modeli dokunun sadece bir kısmını gösteriyor: v 0.03–0.78)
+        public static Rect ScreenUv { get; private set; } = new Rect(0f, 0f, 1f, 1f);
+        /// Ekran modeli okunabilir mi (minigame tıklaması dokudaki noktayı doğrudan okur)
+        public static bool ScreenReadable { get; private set; }
 
         void Start()
         {
@@ -58,6 +64,38 @@ namespace LoadBearing
                 if (t != null) t.localScale *= ledScale; // biraz büyüt: masadan da seçilsin
             }
             SetupFocus();
+            FitScreenTexture();
+        }
+
+        /// Kamera görüntüsünün (1280 × 720) tamamı ekrana sığsın: dokuyu ekranın UV alanına gerer
+        void FitScreenTexture()
+        {
+            if (screenRenderer == null) return;
+            var mf = screenRenderer.GetComponent<MeshFilter>();
+            var mesh = mf != null ? mf.sharedMesh : null;
+            Rect r = new Rect(0f, 0f, 1f, 1f);
+            ScreenReadable = mesh != null && mesh.isReadable;
+            if (ScreenReadable)
+            {
+                var uvs = mesh.uv;
+                if (uvs != null && uvs.Length > 0)
+                {
+                    Vector2 min = uvs[0], max = uvs[0];
+                    foreach (var uv in uvs) { min = Vector2.Min(min, uv); max = Vector2.Max(max, uv); }
+                    if (max.x - min.x > 0.2f && max.y - min.y > 0.2f) r = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+                }
+            }
+            else if (mesh != null && mesh.name.StartsWith("SM_Monitor_Screen"))
+                r = Rect.MinMaxRect(0f, 0.03f, 1f, 0.78f); // tasarım modelindeki değerler (okunamazsa)
+            ScreenUv = r;
+
+            // uv' = uv * ölçek + kaydırma  ->  ekranın UV alanı 0..1 olur
+            var st = new Vector4(1f / r.width, 1f / r.height, -r.xMin / r.width, -r.yMin / r.height);
+            screenRenderer.GetPropertyBlock(mpb);
+            mpb.SetVector(BaseMapStId, st);
+            mpb.SetVector(Shader.PropertyToID("_MainTex_ST"), st);
+            screenRenderer.SetPropertyBlock(mpb);
+            mpb.Clear();
         }
 
         static void AddBox(Transform t)
@@ -130,6 +168,7 @@ namespace LoadBearing
             var fc = FocusController.Instance;
             var cm = ConstructionManager.Instance;
             bool active = fc != null && cm != null && fc.State == FocusState.Monitor && !fc.IsTransitioning;
+            if (MinigameDirector.OnScreen) active = false; // minigame ekrandayken kanal değişmez
             Hover(active ? ButtonUnderPointer() : null);
             if (!active) return;
 

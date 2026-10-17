@@ -51,6 +51,8 @@ MonoBehaviour:
   rageColor: {r: 0.85, g: 0.15, b: 0.12, a: 1}
   dialogue: {fileID: 0}
   reactTime: 1.3
+  standBack: 0
+  happySeconds: 0
   animator: {fileID: 7589270985297406020}
   animFade: 0.25
 --- !u!1 &8632648047781524466
