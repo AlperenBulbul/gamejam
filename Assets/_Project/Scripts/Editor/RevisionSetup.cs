@@ -11,8 +11,9 @@ namespace LoadBearing.EditorTools
 {
     /// "Load Bearing/22 - Tasarım revizelerini yükle (masa + harita)"  (önce menü 13, 14, 18, 21)
     /// Tasarımcının OKU_BENI_Kurulum.md, OKU_BENI_Harita_Revize.md ve OKU_BENI_Revize2.md notlarına göre
-    /// (Revize altındaki bütün paketler sırayla kopyalanır):
-    ///  1. indirilenler/Assets/Revize/.../Assets/Art altındaki her şeyi Assets/Art'a kopyalar (aynı adlılar üzerine)
+    /// Dışarıdan dosya KOPYALAMAZ: tasarımcının yeni dosyaları elle Assets/Art altına (aynı adla) konur, sonra bu menü çalıştırılır.
+    /// Böylece herkesin bilgisayarında aynı çalışır.
+    ///  1. (yok: dosyalar Assets/Art'ta, git ile gelir)
     ///  2. Menü 13'ü çalıştırır (yeni palet, sıra ekranı / yağmur / gökyüzü materyalleri, yeni FBX ayarları)
     ///  3. Sahne: yeni damgalar, sandalye, sıra ekranı (numara TMP ile), yeni duyuru panosu ve fiş makinesi,
     ///     afiş ve takvimin yeni yeri, yeni şehir (eski şehir parçaları gizlenir), yağmur (kapalı), gökyüzü
@@ -22,7 +23,6 @@ namespace LoadBearing.EditorTools
     public static class RevisionSetup
     {
         const string ScenePath = "Assets/_Project/Scenes/Office.unity";
-        const string Source = "../../indirilenler/Assets/Revize"; // Assets klasörüne göre
         const string Office = "Assets/Art/3D/Office";
         const string Props = "Assets/Art/3D/Props";
 
@@ -42,12 +42,6 @@ namespace LoadBearing.EditorTools
                 scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             }
             var log = new List<string>();
-
-            // ---- 1) Dosyaları kopyala
-            // Revize klasörü sadece dosyaları ilk getiren bilgisayarda var. Dosyalar zaten Assets/Art'ta (git ile geliyor),
-            // klasör yoksa kopyalama atlanır ve kurulum projedeki dosyalarla devam eder.
-            if (!CopyFiles(log))
-                Debug.LogWarning("[Load Bearing] Revize klasörü yok, kopyalama atlandı. Projedeki Assets/Art dosyaları kullanılıyor.\n" + string.Join("\n", log));
 
             // ---- 2) İçe aktarma ayarları ve materyaller (menü 13)
             ArtImportSetup.Run();
@@ -269,56 +263,6 @@ namespace LoadBearing.EditorTools
             go.transform.SetPositionAndRotation(pos, rot);
             if (firstTime) new GameObject("_Revize2").transform.SetParent(art.transform, false);
             log.Add("Monitör yatay modelle değiştirildi");
-        }
-
-        // ------------------------------------------------------------------ dosyalar
-
-        static bool CopyFiles(List<string> log)
-        {
-            string src = Path.GetFullPath(Path.Combine(Application.dataPath, Source));
-            if (!Directory.Exists(src)) { log.Add(src); return false; }
-            // Revize/<paket>/Assets/Art klasörlerini bul (paket adı değişebilir)
-            var artDirs = Directory.GetDirectories(src, "Art", SearchOption.AllDirectories)
-                                   .Where(d => Path.GetFileName(Path.GetDirectoryName(d)) == "Assets")
-                                   .OrderBy(NewestFile).ThenBy(d => d, System.StringComparer.Ordinal) // eski paket önce, yenisi üzerine yazar
-                                   .ToList();
-            if (artDirs.Count == 0) { log.Add($"{src} içinde Assets/Art yok"); return false; }
-
-            // Aynı dosya birden fazla pakette varsa EN YENİ tarihli olanı kullanılır (paket sırasına bağlı değil)
-            var newest = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
-            foreach (var artDir in artDirs)
-                foreach (var f in Directory.GetFiles(artDir, "*", SearchOption.AllDirectories))
-                {
-                    string name = Path.GetFileName(f);
-                    if (name.StartsWith(".") || name.EndsWith(".meta")) continue;
-                    string rel = f.Substring(artDir.Length).TrimStart('/', '\\');
-                    if (!newest.TryGetValue(rel, out var cur) || File.GetLastWriteTimeUtc(f) > File.GetLastWriteTimeUtc(cur)) newest[rel] = f;
-                }
-
-            string dstRoot = Path.Combine(Application.dataPath, "Art");
-            int n = 0;
-            foreach (var kv in newest)
-            {
-                string dst = Path.Combine(dstRoot, kv.Key);
-                Directory.CreateDirectory(Path.GetDirectoryName(dst));
-                File.Copy(kv.Value, dst, true);
-                n++;
-            }
-            AssetDatabase.Refresh();
-            log.Add($"{n} dosya Assets/Art'a kopyalandı");
-            return true;
-        }
-
-        /// Paketin en yeni dosyasının tarihi (klasör tarihleri açarken değişebildiği için dosyalara bakılır)
-        static System.DateTime NewestFile(string dir)
-        {
-            var t = System.DateTime.MinValue;
-            foreach (var f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
-            {
-                var w = File.GetLastWriteTimeUtc(f);
-                if (w > t) t = w;
-            }
-            return t;
         }
 
         // ------------------------------------------------------------------ sahne

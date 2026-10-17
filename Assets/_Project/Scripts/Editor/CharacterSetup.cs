@@ -10,7 +10,7 @@ namespace LoadBearing.EditorTools
 {
     /// "Load Bearing/20 - Müşteri karakterlerini kur"  (önce menü 9 ve 13)
     /// Hasan Amca (C1) ve Selin (C3) için Animator Controller + prefab kurar ve müşterilere bağlar.
-    /// - Selin dosyaları projede yoksa "indirilenler" klasöründen Assets/Art/Characters/Selin'e kopyalanır
+    /// - Selin dosyaları Assets/Art/Characters/Selin altında olmalı (dışarıdan kopyalama yok)
     /// - Animasyon durumları: Idle, Impatient, Angry, Rage, Talking, Happy, Sad, Walk (karakterde olanlar)
     ///   CustomerController elinde olmayanın yerine en yakınını oynar.
     /// - Modelin yüzü kollarının konumundan bulunur ve prefabda yürüme yönüne çevrilir
@@ -24,7 +24,6 @@ namespace LoadBearing.EditorTools
 
         const string HasanDir = "Assets/Art/Characters/HasanAmca";
         const string SelinDir = "Assets/Art/Characters/Selin";
-        const string SelinSource = "../../indirilenler/Assets/Karakterler/Selin"; // Assets klasörüne göre
 
         [MenuItem("Load Bearing/20 - Müşteri karakterlerini kur", priority = 20)]
         public static void Run()
@@ -55,7 +54,7 @@ namespace LoadBearing.EditorTools
 
             // ---- Selin
             GameObject selin = null;
-            if (CopySelin(log))
+            if (HasSelin(log))
             {
                 string model = FindAsset(SelinDir, "SK_Customer_Selin");
                 if (model != null)
@@ -119,26 +118,11 @@ namespace LoadBearing.EditorTools
 
         // ------------------------------------------------------------------ Selin dosyaları
 
-        static bool CopySelin(System.Text.StringBuilder log)
+        static bool HasSelin(System.Text.StringBuilder log)
         {
-            if (FindAsset(SelinDir, "SK_Customer_Selin") != null) return true; // zaten projede
-
-            string src = Path.GetFullPath(Path.Combine(Application.dataPath, SelinSource));
-            if (!Directory.Exists(src)) { log.Append($"\n - UYARI: Selin klasörü bulunamadı: {src}"); return false; }
-
-            string dst = Path.GetFullPath(Path.Combine(Application.dataPath, "Art/Characters/Selin"));
-            Directory.CreateDirectory(dst);
-            int n = 0;
-            foreach (var f in Directory.GetFiles(src, "*", SearchOption.AllDirectories))
-            {
-                string ext = Path.GetExtension(f).ToLowerInvariant();
-                if (ext != ".fbx" && ext != ".png" && ext != ".md") continue;
-                File.Copy(f, Path.Combine(dst, Path.GetFileName(f)), true);
-                n++;
-            }
-            AssetDatabase.Refresh();
-            log.Append($"\n - Selin: {n} dosya projeye kopyalandı ({SelinDir})");
-            return FindAsset(SelinDir, "SK_Customer_Selin") != null;
+            if (FindAsset(SelinDir, "SK_Customer_Selin") != null) return true;
+            log.Append($"\n - UYARI: Selin modeli yok ({SelinDir}/SK_Customer_Selin.fbx)");
+            return false;
         }
 
         static void SetupModelImporter(string path)
