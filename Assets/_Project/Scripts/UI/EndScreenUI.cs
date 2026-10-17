@@ -163,13 +163,15 @@ namespace LoadBearing
             var end = EndingRules.Resolve(gm);
             Debug.Log($"[Son] {end.id}{(end.featured != null ? " (" + end.featured.id + ")" : "")}{(end.badge ? " + Yılın Denetçisi" : "")}");
 
-            // Arkadaşın bitiş videosu varsa önce o oynar (Resources/EndingVideos/<son adı>)
-            yield return PlayEndingVideo(end);
-
             var good = new List<string>();
             var bad = new List<string>();
             int correct = 0, total = 0;
             Report(good, bad, ref correct, ref total, end);
+
+            var bdName = ImageName(end.id);
+            var bdTex = bdName != null ? Resources.Load<Texture2D>("Endings/" + bdName) : null;
+            if (backdrop != null) { backdrop.texture = bdTex; backdrop.gameObject.SetActive(bdTex != null); }
+            finish.GetComponent<Image>().color = bdTex != null ? Color.black : new Color(0.05f, 0.045f, 0.04f, 0.92f);
 
             title.text = end.title;
             SetStampColor(end.good ? StampGreen : end.neutral ? StampOchre : StampRed);
@@ -181,12 +183,17 @@ namespace LoadBearing
             goodText.text = Lines(good, "Kayda değer bir şey yok.");
             badText.text = Lines(bad, "Hata yok.");
 
+            // Rapor hazır; sinematik varsa onun altında bekler (video bitince arada oyun sahnesi görünmesin)
+            bool hasVideo = FindVideo(end) != null;
             finish.SetActive(true);
-            finishGroup.alpha = 0f;
+            finishGroup.alpha = hasVideo ? 1f : 0f;
+            if (stampRt != null) stampRt.localScale = Vector3.one * 1.6f;
+            yield return PlayEndingVideo(end);
+
             for (float t = 0f; t < 0.6f; t += Time.unscaledDeltaTime)
             {
                 float k = t / 0.6f;
-                finishGroup.alpha = k;
+                finishGroup.alpha = Mathf.Max(finishGroup.alpha, k);
                 if (stampRt != null) stampRt.localScale = Vector3.one * Mathf.Lerp(1.6f, 1f, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k * 1.6f))); // mühür basılır
                 yield return null;
             }
@@ -194,79 +201,138 @@ namespace LoadBearing
             if (stampRt != null) stampRt.localScale = Vector3.one;
         }
 
-        // ------------------------------------------------------------------ bitiş videosu
+        // ------------------------------------------------------------------ bitiş videosu (tasarımcı, 17 Ekim)
 
-        /// Önce en özel ad aranır: Jail_Quake_C4, NoOneDied_Badge ... sonra genel ad (Jail_Quake, NoOneDied ...)
+        /// Resources/EndingVideos altındaki sinematik. Hâlâ İşte için video yok.
+        static string VideoName(EndingResult end) => end.id switch
+        {
+            EndingId.Jail_Quake => "CIN_End_Jail_Quake",
+            EndingId.Jail_Flood => "CIN_End_Jail_Flood",
+            EndingId.Jail_Bribe => "CIN_End_Jail_Bribe",
+            EndingId.Fired_FaultLine => "CIN_End_Fired_Fault",
+            EndingId.Fired_Flood => "CIN_End_Fired_Flood",
+            EndingId.Fired_WrongfulRejects => "CIN_End_Fired_NoPermit",
+            EndingId.Fired_Penalties => "CIN_End_Fired_TurnedAway",
+            EndingId.Fired_Bankrupt => "CIN_End_Fired_Bankrupt",
+            EndingId.NoOneDied => end.badge ? "CIN_End_NoOneDied_Plaque" : "CIN_End_NoOneDied",
+            _ => null,
+        };
+
+        /// Rapor kâğıdının arkasındaki boyalı görsel (sinematiğin son sahnesi): Resources/Endings
+        static string ImageName(EndingId id) => id switch
+        {
+            EndingId.Jail_Quake => "IMG_End_Jail_Quake",
+            EndingId.Jail_Flood => "IMG_End_Jail_Flood",
+            EndingId.Jail_Bribe => "IMG_End_Jail_Bribe",
+            EndingId.NoOneDied => "IMG_End_NoOneDied",
+            EndingId.StillOnTheJob => null,
+            _ => "IMG_End_Fired",
+        };
+
         static UnityEngine.Video.VideoClip FindVideo(EndingResult end)
         {
-            var names = new List<string>();
-            if (end.featured != null) names.Add($"{end.id}_{end.featured.id}");
-            if (end.badge) names.Add($"{end.id}_Badge");
-            names.Add(end.id.ToString());
-            if (end.id.ToString().StartsWith("Fired_")) names.Add("Fired");   // ortak kovulma videosu
-            if (end.id.ToString().StartsWith("Jail_")) names.Add("Jail");
-            foreach (var n in names)
-            {
-                var clip = Resources.Load<UnityEngine.Video.VideoClip>("EndingVideos/" + n);
-                if (clip != null) return clip;
-            }
-            return null;
+            string n = VideoName(end);
+            if (n == null) return null;
+            var clip = Resources.Load<UnityEngine.Video.VideoClip>("EndingVideos/" + n);
+            if (clip == null && end.badge) clip = Resources.Load<UnityEngine.Video.VideoClip>("EndingVideos/CIN_End_NoOneDied");
+            return clip;
         }
 
+        static bool ClickedThisFrame()
+        {
+            var m = UnityEngine.InputSystem.Mouse.current; var kb = UnityEngine.InputSystem.Keyboard.current;
+            return (m != null && m.leftButton.wasPressedThisFrame) ||
+                   (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame));
+        }
+
+        /// Sinematik oynar. Tıklanırsa sondaki yazı kartına atlar; video bitince son karede (yazı kartı) bekler,
+        /// tıklayınca rapora geçilir. Ses videonun içinde.
         IEnumerator PlayEndingVideo(EndingResult end)
         {
             var clip = FindVideo(end);
             if (clip == null) yield break;
 
+            var back = new GameObject("VideoBack", typeof(RectTransform), typeof(Image));
+            back.transform.SetParent(canvas.transform, false);
+            Stretch((RectTransform)back.transform);
+            back.GetComponent<Image>().color = Color.black;
+
             var go = new GameObject("EndingVideo", typeof(RectTransform), typeof(RawImage));
             go.transform.SetParent(canvas.transform, false);
             var rt = (RectTransform)go.transform;
             Stretch(rt);
-            rt.SetAsLastSibling();
             var img = go.GetComponent<RawImage>();
             img.color = Color.black;
+            img.raycastTarget = false;
             var rtex = new RenderTexture((int)Mathf.Max(16, clip.width), (int)Mathf.Max(16, clip.height), 0);
             var vp = go.AddComponent<UnityEngine.Video.VideoPlayer>();
             vp.playOnAwake = false;
             vp.isLooping = false;
+            vp.waitForFirstFrame = true;
             vp.clip = clip;
             vp.renderMode = UnityEngine.Video.VideoRenderMode.RenderTexture;
             vp.targetTexture = rtex;
             vp.audioOutputMode = UnityEngine.Video.VideoAudioOutputMode.Direct;
+            bool ended = false;
+            vp.loopPointReached += v => { ended = true; v.Pause(); }; // son karede (yazı kartı) kalsın
             vp.Prepare();
-            for (float w = 0f; !vp.isPrepared && w < 5f; w += Time.unscaledDeltaTime) yield return null;
+            for (float w = 0f; !vp.isPrepared && w < 6f; w += Time.unscaledDeltaTime) yield return null;
+
+            // Sağ altta küçük "devam" ipucu (video bitince görünür)
+            var hint = new GameObject("Hint", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter), typeof(CanvasGroup));
+            var hr = (RectTransform)hint.transform;
+            hr.SetParent(canvas.transform, false);
+            hr.anchorMin = hr.anchorMax = new Vector2(1f, 0f);
+            hr.pivot = new Vector2(1f, 0f);
+            hr.anchoredPosition = new Vector2(-48f, 40f);
+            hr.localScale = Vector3.one * 1.3f;
+            var hl = hint.GetComponent<HorizontalLayoutGroup>();
+            hl.spacing = 10f; hl.childAlignment = TextAnchor.MiddleRight;
+            hl.childControlWidth = hl.childControlHeight = true;
+            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
+            var hf = hint.GetComponent<ContentSizeFitter>();
+            hf.horizontalFit = hf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            KeyIcons.Add(hr, "LMB", null);
+            Label(hr, "Devam", 22f, new Color(0.85f, 0.83f, 0.78f), TextAlignmentOptions.MidlineLeft);
+            var hintGroup = hint.GetComponent<CanvasGroup>();
+            hintGroup.alpha = 0f;
+
             if (vp.isPrepared)
             {
                 img.texture = rtex;
                 img.color = Color.white;
-                // Ekranı oranı bozmadan kapla (siyah kenar olabilir)
-                var fit = go.AddComponent<AspectRatioFitter>();
+                var fit = go.AddComponent<AspectRatioFitter>(); // oranı bozmadan ekranı kapla
                 fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
                 fit.aspectRatio = clip.width > 0 && clip.height > 0 ? (float)clip.width / clip.height : 16f / 9f;
-                var back = new GameObject("VideoBack", typeof(RectTransform), typeof(Image));
-                back.transform.SetParent(canvas.transform, false);
-                Stretch((RectTransform)back.transform);
-                back.GetComponent<Image>().color = Color.black;
-                back.transform.SetSiblingIndex(go.transform.GetSiblingIndex());
-
                 vp.Play();
-                float t = 0f;
+
                 double length = clip.length;
-                while (t < length + 0.5f)
+                float t = 0f;
+                bool skipped = false;
+                while (true)
                 {
                     t += Time.unscaledDeltaTime;
-                    var m = UnityEngine.InputSystem.Mouse.current; var kb = UnityEngine.InputSystem.Keyboard.current;
-                    bool skip = t > 0.8f && ((m != null && m.leftButton.wasPressedThisFrame) ||
-                                (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame)));
-                    if (skip || (t > 0.5f && !vp.isPlaying)) break;
+                    bool done = ended || (t > 1f && !vp.isPlaying && !vp.isPaused) || t > length + 3.0;
+                    if (done)
+                    {
+                        hintGroup.alpha = Mathf.MoveTowards(hintGroup.alpha, 1f, Time.unscaledDeltaTime * 2f);
+                        if (ClickedThisFrame() && hintGroup.alpha > 0.3f) break;
+                    }
+                    else if (t > 0.8f && ClickedThisFrame())
+                    {
+                        if (!skipped) { skipped = true; vp.time = System.Math.Max(0.0, length - 0.15); } // yazı kartına atla
+                        else break;
+                    }
                     yield return null;
                 }
-                Destroy(back);
             }
             vp.Stop();
+            Destroy(hint);
             Destroy(go);
+            Destroy(back);
             rtex.Release();
             Destroy(rtex);
+            yield return null; // tıklama rapordaki düğmelere geçmesin
         }
 
         static string Lines(List<string> list, string empty)
@@ -408,6 +474,19 @@ namespace LoadBearing
             finishGroup = finish.AddComponent<CanvasGroup>();
             var f = (RectTransform)finish.transform;
 
+            // Sinematiğin son sahnesi (boyalı görsel), koyulaştırılmış: kâğıt öne çıksın
+            var bdGo = new GameObject("Backdrop", typeof(RectTransform), typeof(RawImage), typeof(AspectRatioFitter));
+            backdrop = bdGo.GetComponent<RawImage>();
+            var bdr = (RectTransform)bdGo.transform;
+            bdr.SetParent(f, false);
+            Stretch(bdr);
+            var bdFit = bdGo.GetComponent<AspectRatioFitter>();
+            bdFit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            bdFit.aspectRatio = 16f / 9f;
+            backdrop.color = new Color(0.38f, 0.37f, 0.36f, 1f);
+            backdrop.raycastTarget = false;
+            bdGo.SetActive(false);
+
             // Kâğıdın gölgesi + kâğıt (hafif eğik)
             var shadow = Panel(f, "PaperShadow", new Color(0f, 0f, 0f, 0.45f));
             Place((RectTransform)shadow.transform, 0.5f, 0.5f, new Vector2(10f, -12f), new Vector2(1240f, 960f));
@@ -481,6 +560,7 @@ namespace LoadBearing
         static readonly Color StampGreen = new Color(0.18f, 0.47f, 0.27f);
         static readonly Color StampOchre = new Color(0.55f, 0.42f, 0.10f);
 
+        RawImage backdrop;
         RectTransform stampRt;
         readonly List<Image> stampBars = new List<Image>();
 

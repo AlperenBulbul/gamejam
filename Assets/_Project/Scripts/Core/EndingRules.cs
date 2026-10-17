@@ -12,10 +12,11 @@ namespace LoadBearing
     /// Depremden ve selden sonra şantiyenin durumu
     public enum SiteOutcome { Standing, Damaged, CollapsedQuake, CollapsedFlood }
 
-    /// Oyunun sonu. Video dosyaları bu adlarla aranır: Resources/EndingVideos/<ad>
+    /// Oyunun sonu. Videolar: Resources/EndingVideos (EndScreenUI.VideoName eşler).
+    /// Rüşvet artık hapis sonu (tasarımcı, 17 Ekim): Jail_Bribe.
     public enum EndingId
     {
-        Fired_Bribe, Fired_FaultLine, Fired_Flood, Fired_WrongfulRejects, Fired_Penalties, Fired_Bankrupt,
+        Jail_Bribe, Fired_FaultLine, Fired_Flood, Fired_WrongfulRejects, Fired_Penalties, Fired_Bankrupt,
         Jail_Quake, Jail_Flood, NoOneDied, StillOnTheJob,
     }
 
@@ -143,7 +144,7 @@ namespace LoadBearing
 
         static EndingId FiredId(FireReason r) => r switch
         {
-            FireReason.Bribe => EndingId.Fired_Bribe,
+            FireReason.Bribe => EndingId.Jail_Bribe,
             FireReason.FaultLine => EndingId.Fired_FaultLine,
             FireReason.Flood => EndingId.Fired_Flood,
             FireReason.WrongfulRejects => EndingId.Fired_WrongfulRejects,
@@ -159,7 +160,7 @@ namespace LoadBearing
             {
                 case EndingId.Jail_Quake: r.title = "HAPİS"; r.body = "Mühür senin, imza senin. Deprem birkaç saniye sürdü; dava yıllarca sürecek."; break;
                 case EndingId.Jail_Flood: r.title = "HAPİS"; r.body = "Dere yatağını herkes biliyordu. Haritada da yazıyordu. Su da biliyordu."; break;
-                case EndingId.Fired_Bribe: r.title = "KOVULDUN"; r.body = "Zarf çekmecende bir gün bile durmadı. Müfettişler akşam geldi."; break;
+                case EndingId.Jail_Bribe: r.title = "HAPİS"; r.body = "Zarf çekmecende bir gün bile durmadı. Müfettişler akşam geldi."; break;
                 case EndingId.Fired_FaultLine: r.title = "KOVULDUN"; r.body = "Bir kez hata denir. İkincisi dosya olur."; break;
                 case EndingId.Fired_Flood: r.title = "KOVULDUN"; r.body = "İki aileyi dere kenarına yerleştirdin. Belediye seni yerinden etti."; break;
                 case EndingId.Fired_WrongfulRejects: r.title = "KOVULDUN"; r.body = "Hiç bina yıkılmadı, çünkü hiç bina yapılmadı."; break;
@@ -174,7 +175,7 @@ namespace LoadBearing
         /// Kovulma nedeninin kısa adı (özet satırı için)
         public static string ReasonLabel(EndingId id) => id switch
         {
-            EndingId.Fired_Bribe => "Kovuldun — Rüşvet",
+            EndingId.Jail_Bribe => "Hapis — Rüşvet",
             EndingId.Fired_FaultLine => "Kovuldun — Fay Hattı",
             EndingId.Fired_Flood => "Kovuldun — Dere Yatağı",
             EndingId.Fired_WrongfulRejects => "Kovuldun — Ruhsat Vermeyen Denetçi",
