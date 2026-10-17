@@ -23,6 +23,12 @@ namespace LoadBearing
         public TMP_Text license;
         public TMP_Text soil;
 
+        [Header("Yakın bakış kamerası")]
+        [Tooltip("Ne kadar yüksekten bakılsın (1 = form + mühürler kadrajı tam doldurur)")]
+        public float focusHeightScale = 1.3f;
+        [Tooltip("Tam tepeden ne kadar eğik bakılsın (derece). 0 = tam tepeden")]
+        [Range(0f, 45f)] public float focusTilt = 22f;
+
         [Header("Kayarak gelme")]
         public Vector3 slideFromOffset = new Vector3(0f, 0.06f, 0.45f); // gişe tarafından
         public float slideTime = 0.45f;
@@ -85,10 +91,16 @@ namespace LoadBearing
                 foreach (var st in new[] { sc.approveStamp, sc.rejectStamp })
                     if (st != null) { b.Encapsulate(st.HomePos + new Vector3(0.05f, 0f, 0.05f)); b.Encapsulate(st.HomePos - new Vector3(0.05f, 0f, 0.05f)); }
             }
-            float h = Mathf.Max(b.size.z, b.size.x / 1.7f) * 0.5f / Mathf.Tan(35f * Mathf.Deg2Rad) * 1.08f;
-            interactable.focusPoint.position = new Vector3(b.center.x, form.position.y + Mathf.Max(0.2f, h), b.center.z);
+            float dist = Mathf.Max(0.2f, Mathf.Max(b.size.z, b.size.x / 1.7f) * 0.5f / Mathf.Tan(35f * Mathf.Deg2Rad) * 1.08f * focusHeightScale);
             var up = form.up; up.y = 0f; // formun üst kenarı ekranın üstüne gelsin
-            interactable.focusPoint.rotation = Quaternion.LookRotation(Vector3.down, up.sqrMagnitude > 1e-4f ? up.normalized : Vector3.forward);
+            up = up.sqrMagnitude > 1e-4f ? up.normalized : Vector3.forward;
+
+            // Hafif eğik: kamera oyuncu tarafına doğru yatar, mühürler yandan da görünür
+            float t = focusTilt * Mathf.Deg2Rad;
+            var center = new Vector3(b.center.x, form.position.y, b.center.z);
+            var dir = Vector3.up * Mathf.Cos(t) - up * Mathf.Sin(t);   // merkezden kameraya
+            interactable.focusPoint.position = center + dir * dist;
+            interactable.focusPoint.rotation = Quaternion.LookRotation(-dir, up);
         }
 
         /// Yakın bakışta açık, masada kapalı dosya

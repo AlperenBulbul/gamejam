@@ -8,11 +8,11 @@ namespace LoadBearing.EditorTools
 {
     /// "Load Bearing/21 - Güvenlik monitörünü kur"  (önce menü 14)
     /// - RT_Monitor (1024 x 768) Render Texture
-    /// - FeedWorld (x = 1000): ortografik izometrik FeedCamera -> RT_Monitor, SiteRoot, kendi ışığı,
+    /// - FeedWorld (x = 5000): ortografik izometrik FeedCamera -> RT_Monitor, SiteRoot, kendi ışığı,
     ///   kamera görüntüsü üstü yazılar (REC şeridi, KUSUR, saat, köşe çerçeveleri, tarama çizgileri, SİNYAL YOK)
     /// - Masadaki monitörün ekranı (SM_Monitor_Screen) bu dokuyu gösterir (Unlit, ışıktan etkilenmez)
     /// - Ekrana MeshCollider (adım 13'te işçi tıklama için), Desk/Monitor'e MonitorView
-    /// - Ana kameranın uzak kesme mesafesi 150 m (FeedWorld'ü görmesin)
+    /// - Ana kameranın uzak kesme mesafesi 1200 m (gök kubbesi 650 m); FeedWorld 5000 m uzakta, görünmez
     /// Tekrar çalıştırılabilir.
     public static class MonitorSetup
     {
@@ -59,7 +59,7 @@ namespace LoadBearing.EditorTools
             var old = GameObject.Find("FeedWorld");
             if (old != null) Object.DestroyImmediate(old);
             var world = new GameObject("FeedWorld");
-            world.transform.position = new Vector3(1000f, 0f, 0f);
+            world.transform.position = new Vector3(5000f, 0f, 0f); // gök kubbesinin (650 m) ve kameranın (1200 m) çok dışında
 
             var siteRoot = new GameObject("SiteRoot").transform;
             siteRoot.SetParent(world.transform, false);
@@ -126,7 +126,7 @@ namespace LoadBearing.EditorTools
 
             // ---- Ana kamera FeedWorld'ü görmesin
             var main = GameObject.FindWithTag("MainCamera");
-            if (main != null) { var mc = main.GetComponent<Camera>(); if (mc != null && mc.farClipPlane > 150f) mc.farClipPlane = 150f; }
+            if (main != null) { var mc = main.GetComponent<Camera>(); if (mc != null) mc.farClipPlane = 1200f; }
 
             EditorUtility.SetDirty(feed);
             EditorSceneManager.MarkSceneDirty(scene);

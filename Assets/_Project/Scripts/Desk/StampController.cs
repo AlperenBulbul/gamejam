@@ -5,10 +5,10 @@ using UnityEngine.InputSystem;
 namespace LoadBearing
 {
     /// Mühür alma, imleçle taşıma, dosyaya basma ve KARAR mantığı (Geliştirme dokümanı 6.2).
-    ///  - Mühüre tıkla  -> HoldingStamp, mühür imleci takip eder
-    ///  - Dosyaya tıkla -> mühür iner, KARAR kutusuna basılır, karar RunState'e yazılır
-    ///  - Boş yere tıkla / sağ tık -> mühür yerine döner
-    ///  - Açık dosyaya yakından bakarken de: mührü al, formun üstüne tıkla -> KARAR kutusuna basılır
+    ///  - Mühür SADECE dosya açıkken alınabilir (oyuncu belgeyi açıp okumadan karar veremez)
+    ///  - Açık dosyada mühre tıkla -> mühür imleci takip eder
+    ///  - Formun üstüne tıkla -> mühür iner, KARAR kutusuna basılır, karar RunState'e yazılır
+    ///  - Formun dışına tıkla / sağ tık -> mühür yerine döner
     /// DeskInteractor'dan SONRA çalışır (aynı karedeki tıklamayı doğru yorumlamak için).
     [DefaultExecutionOrder(50)]
     public class StampController : MonoBehaviour
@@ -48,17 +48,15 @@ namespace LoadBearing
 
             Hook(approveStamp);
             Hook(rejectStamp);
-            AllowInFolder(approveStamp);
-            AllowInFolder(rejectStamp);
+            OnlyInFolder(approveStamp);
+            OnlyInFolder(rejectStamp);
         }
 
-        /// Açık dosyaya bakarken de mühre tıklanabilsin
-        static void AllowInFolder(StampTool s)
+        /// Mühre sadece açık dosyaya bakarken tıklanabilsin (masadan alınamaz)
+        static void OnlyInFolder(StampTool s)
         {
             var it = s != null ? s.GetComponent<Interactable>() : null;
-            if (it == null || it.IsClickableIn(FocusState.Folder)) return;
-            var list = new System.Collections.Generic.List<FocusState>(it.clickableIn) { FocusState.Folder };
-            it.clickableIn = list.ToArray();
+            if (it != null) it.clickableIn = new[] { FocusState.Folder };
         }
 
         void Hook(StampTool s)
@@ -113,14 +111,7 @@ namespace LoadBearing
         {
             var fc = FocusController.Instance;
             if (animating || fc == null || held != null || fc.IsTransitioning) return;
-            if (fc.State == FocusState.Desk)
-            {
-                held = s;
-                pickFrame = Time.frameCount;
-                SetColliders(s, false); // eldeki mühür imlecin altındaki dosyayı örtmesin
-                fc.SetHoldingStamp(true);
-            }
-            else if (fc.State == FocusState.Folder)
+            if (fc.State == FocusState.Folder) // masadan değil, sadece açık dosyadayken
             {
                 held = s;
                 inFolder = true;

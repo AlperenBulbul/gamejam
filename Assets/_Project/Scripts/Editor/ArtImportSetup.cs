@@ -78,8 +78,28 @@ namespace LoadBearing.EditorTools
             foreach (var path in new[] { "Assets/Art/UI/Desk/T_Form_Sample_C1.png", "Assets/Art/UI/Desk/T_NewspaperFront_Sample.png",
                                          "Assets/Art/UI/Desk/T_RulePage_03_Sample.png", "Assets/Art/UI/Monitor/UI_Monitor_Sample.png" })
                 if (Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
+
+            // ---- Teslim 2 (revize)
+            foreach (var path in new[] { NewspaperDay1, RuleBlank })
+                if (Exists(path) && Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.maxTextureSize = 2048; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
+            foreach (var path in new[] { SkyDay1, SkyDay2, SkyRain })
+                if (Exists(path) && Tex(path, ti => { ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = false; ti.textureCompression = TextureImporterCompression.Uncompressed; })) n++;
+            foreach (var path in new[] { RainDrops, RainStreaks, RainSheet })
+                if (Exists(path) && Tex(path, ti => { ti.wrapMode = TextureWrapMode.Repeat; ti.alphaIsTransparency = true; ti.alphaSource = TextureImporterAlphaSource.FromInput; })) n++;
             return n;
         }
+
+        const string NewspaperDay1 = "Assets/Art/UI/Desk/T_NewspaperFront_Day1_GameJam.png";
+        const string RuleBlank = "Assets/Art/UI/Desk/T_RulePage_Blank.png";
+        const string SkyDay1 = "Assets/Art/3D/Textures/T_Sky_Day1.png";
+        const string SkyDay2 = "Assets/Art/3D/Textures/T_Sky_Day2.png";
+        const string SkyRain = "Assets/Art/3D/Textures/T_Sky_Rain.png";
+        const string RainDrops = "Assets/Art/3D/Textures/T_RainGlass_Drops.png";
+        const string RainStreaks = "Assets/Art/3D/Textures/T_RainGlass_Streaks.png";
+        const string RainSheet = "Assets/Art/3D/Textures/T_RainSheet.png";
+
+        static bool Exists(string path) => AssetImporter.GetAtPath(path) != null;
+        static Texture2D Load(string path) => AssetDatabase.LoadAssetAtPath<Texture2D>(path);
 
         static bool Tex(string path, System.Action<TextureImporter> setup)
         {
@@ -100,9 +120,9 @@ namespace LoadBearing.EditorTools
             var mapTex = AssetDatabase.LoadAssetAtPath<Texture2D>(MapBase);
             var overlayTex = AssetDatabase.LoadAssetAtPath<Texture2D>(MapOverlay);
             var monitorTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Monitor/UI_Monitor_Sample.png");
-            var paperTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Desk/T_NewspaperFront_Sample.png");
+            var paperTex = Load(NewspaperDay1) ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Desk/T_NewspaperFront_Sample.png"); // 1. gün açılış gazetesi (teslim 2)
             var formTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Desk/T_Form_Sample_C1.png");
-            var ruleTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Desk/T_RulePage_03_Sample.png");
+            var ruleTex = Load(RuleBlank) ?? AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Art/UI/Desk/T_RulePage_03_Sample.png"); // boş sayfa (teslim 2)
 
             var d = new Dictionary<string, Material>();
             d["M_Palette"] = Mat("M_Palette", lit, m => { Base(m, palette, Color.white); m.SetFloat("_Smoothness", 0.25f); });
@@ -121,7 +141,14 @@ namespace LoadBearing.EditorTools
             d["M_LedGrey"] = Mat("M_LedGrey", lit, m => { Base(m, null, new Color(0.45f, 0.45f, 0.45f)); NoEmission(m); });
             d["M_LedRed"] = Mat("M_LedRed", lit, m => { Base(m, null, new Color(0.85f, 0.15f, 0.12f)); Emission(m, new Color(1f, 0.15f, 0.1f) * 2f, null); });
             d["M_LampEmit"] = Mat("M_LampEmit", lit, m => { Base(m, null, new Color(1f, 0.96f, 0.88f)); Emission(m, new Color(1f, 0.93f, 0.80f) * 2.2f, null); });
-            d["M_Sky"] = Mat("M_Sky", unlit, m => Base(m, null, new Color(0.62f, 0.78f, 0.92f)));
+            var skyTex = Load(SkyDay1);
+            d["M_Sky"] = Mat("M_Sky", unlit, m => Base(m, skyTex, skyTex != null ? Color.white : new Color(0.62f, 0.78f, 0.92f)));
+
+            // ---- Teslim 2: sıra ekranı ve yağmur
+            d["M_QueueLED"] = Mat("M_QueueLED", lit, m => { Base(m, null, new Color(1f, 0.12f, 0.06f)); Emission(m, new Color(1f, 0.12f, 0.06f) * 5f, null); });
+            d["M_RainGlass_Drops"] = Mat("M_RainGlass_Drops", lit, m => { Base(m, Load(RainDrops), new Color(1f, 1f, 1f, 0.6f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
+            d["M_RainGlass_Streaks"] = Mat("M_RainGlass_Streaks", lit, m => { Base(m, Load(RainStreaks), new Color(1f, 1f, 1f, 0.55f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
+            d["M_RainSheet"] = Mat("M_RainSheet", unlit, m => { Base(m, Load(RainSheet), new Color(1f, 1f, 1f, 0.6f)); Transparent(m); });
             return d;
         }
 

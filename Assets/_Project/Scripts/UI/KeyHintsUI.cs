@@ -34,7 +34,7 @@ namespace LoadBearing
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
             var sc = StampController.Instance;
-            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}";
+            string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}";
             if (key != lastKey) { lastKey = key; Refresh(); }
         }
         void OnStateChanged(GameState _) => Refresh();
@@ -52,6 +52,16 @@ namespace LoadBearing
             text.text = Build(Hints(gm.State, focus, holding));
         }
 
+        static MapView map;
+        static bool OverlayVisible
+        {
+            get
+            {
+                if (map == null) map = Object.FindAnyObjectByType<MapView>();
+                return map != null && map.OverlayVisible;
+            }
+        }
+
         static (string key, string action)[] Hints(GameState state, FocusState focus, bool holding)
         {
             switch (focus)
@@ -61,7 +71,9 @@ namespace LoadBearing
                         ? new[] { ("Sol tık form", "Mühür bas"), ("Sağ tık", "Mührü bırak") }
                         : new[] { ("Sol tık mühür", "Mührü al"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Map:
-                    return new[] { ("Tekerlek", "Yakınlaştır"), ("Boşluk", "Asetat aç / kapat"), ("Sağ tık / Esc", "Geri") };
+                    return new[] { ("Tekerlek", "Yakınlaştır"),
+                                   ("Boşluk", OverlayVisible ? "Nehir yatağı ve fay hattını gizle" : "Nehir yatağı ve fay hattını göster"),
+                                   ("Sağ tık / Esc", "Geri") };
                 case FocusState.Binder:
                     return new[] { ("Tekerlek / Oklar", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Monitor:
@@ -69,7 +81,7 @@ namespace LoadBearing
                 case FocusState.HoldingStamp:
                     return new[] { ("Sol tık dosya", "Mühür bas"), ("Sağ tık", "Mührü bırak") };
                 default: // Desk
-                    return new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Mühür + dosya", "Karar ver") };
+                    return new[] { ("Fare", "Etrafa bak"), ("Sol tık", "Seç / incele"), ("Dosyayı aç", "Mühürle karar ver") };
             }
         }
 

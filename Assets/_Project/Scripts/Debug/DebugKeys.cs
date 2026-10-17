@@ -37,6 +37,7 @@ namespace LoadBearing
             if (kb.f8Key.wasPressedThisFrame) gm.DebugAdvance();          // akışı bir adım ilerlet
             if (kb.f9Key.wasPressedThisFrame) gm.DebugJumpToDay(2);
             if (kb.f10Key.wasPressedThisFrame) showOverlay = !showOverlay;
+            if (kb.f12Key.wasPressedThisFrame && EnvironmentController.Instance != null) EnvironmentController.Instance.ToggleRain(); // yağmur testi
 
         }
 
@@ -64,7 +65,7 @@ namespace LoadBearing
             var cm = ConstructionManager.Instance;
             string sites = cm != null ? cm.DebugSummary() : "-";
             int siteLines = sites.Split('\n').Length;
-            GUI.Box(new Rect(10, 10, 380, 290 + siteLines * 15),
+            GUI.Box(new Rect(10, 10, 380, 305 + siteLines * 15),
                 $"DURUM: {gm.State}   GÜN: {r.day}\n" +
                 $"ODAK: {focus}\n" +
                 $"Bakiye: {r.balance} TL\n" +
@@ -74,7 +75,7 @@ namespace LoadBearing
                 $"Müşteri: {CustomerInfo()}\n" +
                 $"Bugün: {r.ledger.stepsCompleted} adım · {r.ledger.fixes} düzeltme\n" +
                 $"ŞANTİYELER:\n{sites}\n" +
-                $"\nF1 doğru mühür · F4 günü bitir · F6 sabrı dondur\nF2 hata başlat · F7 inşaat x10 · F11 hatayı düzelt\nShift+F11 düzgün işçiye tıkla · F8 akış · F9 2. gün · F10 gizle");
+                $"\nF1 doğru mühür · F4 günü bitir · F6 sabrı dondur\nF2 hata başlat · F7 inşaat x10 · F11 hatayı düzelt\nShift+F11 düzgün işçiye tıkla · F12 yağmur\nF8 akış · F9 2. gün · F10 gizle");
         }
     }
 }

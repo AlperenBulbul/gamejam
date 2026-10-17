@@ -82,6 +82,26 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_QueueLED
+    second: {fileID: 2100000, guid: 9dd2e5424082da2478e15b0ac5ccf7f5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_RainGlass_Drops
+    second: {fileID: 2100000, guid: 3688be8a121aaa6459ca18e4820c3f6b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_RainGlass_Streaks
+    second: {fileID: 2100000, guid: a6000c2ee07597f4eb5172621118f061, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_RainSheet
+    second: {fileID: 2100000, guid: 9cc369c77ce8cee4d80d5ad016a16788, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_RulePage_Front
     second: {fileID: 2100000, guid: 415ffc2f5df1a414797ee549dcaa8c6c, type: 2}
   - first:
