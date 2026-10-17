@@ -82,6 +82,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_Poster_Deprem
+    second: {fileID: 2100000, guid: 9ef5e87f631b0394ca757c86a67a1461, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_QueueLED
     second: {fileID: 2100000, guid: 9dd2e5424082da2478e15b0ac5ccf7f5, type: 2}
   - first:

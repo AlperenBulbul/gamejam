@@ -8,8 +8,8 @@ using UnityEngine;
 
 namespace LoadBearing.EditorTools
 {
-    /// "Load Bearing/22 - Tasarım teslimi 2'yi (revize) yükle"  (önce menü 13, 14, 18, 21)
-    /// Tasarımcının OKU_BENI_Kurulum.md notuna göre:
+    /// "Load Bearing/22 - Tasarım revizelerini yükle (masa + harita)"  (önce menü 13, 14, 18, 21)
+    /// Tasarımcının OKU_BENI_Kurulum.md ve OKU_BENI_Harita_Revize.md notlarına göre:
     ///  1. indirilenler/Assets/Revize/.../Assets/Art altındaki her şeyi Assets/Art'a kopyalar (aynı adlılar üzerine)
     ///  2. Menü 13'ü çalıştırır (yeni palet, sıra ekranı / yağmur / gökyüzü materyalleri, yeni FBX ayarları)
     ///  3. Sahne: yeni damgalar, sandalye, sıra ekranı (numara TMP ile), yeni duyuru panosu ve fiş makinesi,
@@ -24,7 +24,13 @@ namespace LoadBearing.EditorTools
         const string Office = "Assets/Art/3D/Office";
         const string Props = "Assets/Art/3D/Props";
 
-        [MenuItem("Load Bearing/22 - Tasarım teslimi 2'yi (revize) yükle", priority = 22)]
+        /// Kural klasörü sayfa 1 (harita revizesi: fay tehlike bölgesi asetatta)
+        public const string Rule1Body =
+            "• FAY HATTI: Kuzey Fayı tehlike bölgesine (asetatta kırmızı taralı alan) değen arsaya yapı yapılamaz.\n\n" +
+            "• DERE YATAĞI: Kara Dere taşkın alanının (asetatta mavi taralı alan) içindeki arsaya yapı yapılamaz.\n\n" +
+            "<size=85%><i>Haritada Boşluk tuşu: nehir yatağı ve fay hattı katmanını göster / gizle.</i></size>";
+
+        [MenuItem("Load Bearing/22 - Tasarım revizelerini yükle (masa + harita)", priority = 22)]
         public static void Run()
         {
             var scene = EditorSceneManager.GetActiveScene();
@@ -73,8 +79,15 @@ namespace LoadBearing.EditorTools
                 Hide(oldTicket);
             }
 
-            // ---- 3d) Afiş ve takvim yeni yerlerinde (sağ duvar)
-            Move(layout, "SM_Poster_Deprem", Blender(2.176f, 0.58f, 1.15f), log);
+            // ---- 3d) Afiş (harita revizesinde yenilendi: yazılar dokuda) ve takvim yeni yerlerinde (sağ duvar)
+            var oldPoster = FindDeep(layout, "SM_Poster_Deprem");
+            var poster = Place($"{Office}/SM_Poster_Deprem.fbx", group, Blender(2.176f, 0.58f, 1.15f), log);
+            if (poster != null)
+            {
+                if (oldPoster != null) poster.rotation = oldPoster.rotation;
+                Hide(oldPoster);
+            }
+            else Move(layout, "SM_Poster_Deprem", Blender(2.176f, 0.58f, 1.15f), log);
             Move(layout, "SM_Calendar", Blender(2.184f, -1.05f, 1.35f), log);
 
             // ---- 3e) Şehir: eski parçalar gizlenir, yenisi ofisle aynı yere
@@ -129,6 +142,15 @@ namespace LoadBearing.EditorTools
                 env.sun = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
                                 .FirstOrDefault(l => l.type == LightType.Directional);
                 EditorUtility.SetDirty(env);
+            }
+
+            // ---- Kural sayfası 1: fay tehlike bölgesi
+            var rule1 = AssetDatabase.LoadAssetAtPath<RuleData>("Assets/_Project/Data/Rules/Rule_1_Konum.asset");
+            if (rule1 != null && rule1.body != Rule1Body)
+            {
+                rule1.body = Rule1Body;
+                EditorUtility.SetDirty(rule1);
+                log.Add("Kural 1 metni güncellendi (fay tehlike bölgesi)");
             }
 
             // ---- 4) Kamera uzak kesme + şantiye maketi daha uzağa

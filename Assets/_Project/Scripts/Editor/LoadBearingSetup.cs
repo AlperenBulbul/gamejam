@@ -101,8 +101,7 @@ namespace LoadBearing.EditorTools
             }
 
             R("1_Konum", 1, "Yasak bölgeler",
-                "• FAY HATTI: Kuzey Fayı'na (haritada kırmızı çizgi) değen arsaya yapı yapılamaz.\n\n" +
-                "• DERE YATAĞI: Kara Dere taşkın alanının (haritada mavi tarama) içindeki arsaya yapı yapılamaz.");
+                RevisionSetup.Rule1Body);
             R("2_KatSiniri", 1, "Kat sınırı",
                 "Arsa alanına göre en fazla kat:\n\n" +
                 "• 200 m² altı: en fazla 2 kat\n• 200 – 399 m²: en fazla 4 kat\n• 400 m² ve üstü: en fazla 6 kat");

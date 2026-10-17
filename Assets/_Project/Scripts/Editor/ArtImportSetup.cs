@@ -80,7 +80,7 @@ namespace LoadBearing.EditorTools
                 if (Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
 
             // ---- Teslim 2 (revize)
-            foreach (var path in new[] { NewspaperDay1, RuleBlank })
+            foreach (var path in new[] { NewspaperDay1, RuleBlank, PosterTex })
                 if (Exists(path) && Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.maxTextureSize = 2048; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
             foreach (var path in new[] { SkyDay1, SkyDay2, SkyRain })
                 if (Exists(path) && Tex(path, ti => { ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = false; ti.textureCompression = TextureImporterCompression.Uncompressed; })) n++;
@@ -97,6 +97,7 @@ namespace LoadBearing.EditorTools
         const string RainDrops = "Assets/Art/3D/Textures/T_RainGlass_Drops.png";
         const string RainStreaks = "Assets/Art/3D/Textures/T_RainGlass_Streaks.png";
         const string RainSheet = "Assets/Art/3D/Textures/T_RainSheet.png";
+        const string PosterTex = "Assets/Art/3D/Textures/T_Poster_Deprem.png";
 
         static bool Exists(string path) => AssetImporter.GetAtPath(path) != null;
         static Texture2D Load(string path) => AssetDatabase.LoadAssetAtPath<Texture2D>(path);
@@ -148,6 +149,7 @@ namespace LoadBearing.EditorTools
             d["M_QueueLED"] = Mat("M_QueueLED", lit, m => { Base(m, null, new Color(1f, 0.12f, 0.06f)); Emission(m, new Color(1f, 0.12f, 0.06f) * 5f, null); });
             d["M_RainGlass_Drops"] = Mat("M_RainGlass_Drops", lit, m => { Base(m, Load(RainDrops), new Color(1f, 1f, 1f, 0.6f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
             d["M_RainGlass_Streaks"] = Mat("M_RainGlass_Streaks", lit, m => { Base(m, Load(RainStreaks), new Color(1f, 1f, 1f, 0.55f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
+            d["M_Poster_Deprem"] = Mat("M_Poster_Deprem", lit, m => { Base(m, Load(PosterTex), Color.white); m.SetFloat("_Smoothness", 0.25f); });
             d["M_RainSheet"] = Mat("M_RainSheet", unlit, m => { Base(m, Load(RainSheet), new Color(1f, 1f, 1f, 0.6f)); Transparent(m); });
             return d;
         }
