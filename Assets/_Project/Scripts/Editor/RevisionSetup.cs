@@ -281,19 +281,26 @@ namespace LoadBearing.EditorTools
                                    .ToList();
             if (artDirs.Count == 0) { log.Add($"{src} içinde Assets/Art yok"); return false; }
 
-            string dstRoot = Path.Combine(Application.dataPath, "Art");
-            int n = 0;
+            // Aynı dosya birden fazla pakette varsa EN YENİ tarihli olanı kullanılır (paket sırasına bağlı değil)
+            var newest = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
             foreach (var artDir in artDirs)
                 foreach (var f in Directory.GetFiles(artDir, "*", SearchOption.AllDirectories))
                 {
                     string name = Path.GetFileName(f);
                     if (name.StartsWith(".") || name.EndsWith(".meta")) continue;
                     string rel = f.Substring(artDir.Length).TrimStart('/', '\\');
-                    string dst = Path.Combine(dstRoot, rel);
-                    Directory.CreateDirectory(Path.GetDirectoryName(dst));
-                    File.Copy(f, dst, true);
-                    n++;
+                    if (!newest.TryGetValue(rel, out var cur) || File.GetLastWriteTimeUtc(f) > File.GetLastWriteTimeUtc(cur)) newest[rel] = f;
                 }
+
+            string dstRoot = Path.Combine(Application.dataPath, "Art");
+            int n = 0;
+            foreach (var kv in newest)
+            {
+                string dst = Path.Combine(dstRoot, kv.Key);
+                Directory.CreateDirectory(Path.GetDirectoryName(dst));
+                File.Copy(kv.Value, dst, true);
+                n++;
+            }
             AssetDatabase.Refresh();
             log.Add($"{n} dosya Assets/Art'a kopyalandı");
             return true;

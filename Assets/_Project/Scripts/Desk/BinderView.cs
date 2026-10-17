@@ -23,6 +23,8 @@ namespace LoadBearing
         public TMP_Text pageNo;
         public GameObject newSticker;
         public float flipTime = 0.16f;
+        [Tooltip("Görselli sayfalarda tam sayfa çevirme süresi (sn)")]
+        public float pageTurnTime = 0.45f;
         public float wheelCooldown = 0.12f;
 
         [Header("Kapak")]
@@ -88,7 +90,30 @@ namespace LoadBearing
             pageArt = t.GetComponent<RawImage>();
             pageArt.raycastTarget = false;
             pageArt.enabled = false;
+
+            // Çevrilen sayfa: sol kenardan (halkalardan) menteşeli, sayfanın üstünde
+            var page = pageRoot.parent;
+            var tt = page.Find("TurnPage");
+            if (tt == null)
+            {
+                var go = new GameObject("TurnPage", typeof(RectTransform), typeof(RawImage));
+                tt = go.transform;
+                tt.SetParent(page, false);
+            }
+            var trt = (RectTransform)tt;
+            trt.anchorMin = pageRoot.anchorMin; trt.anchorMax = pageRoot.anchorMax;
+            trt.pivot = pageRoot.pivot;
+            trt.offsetMin = pageRoot.offsetMin; trt.offsetMax = pageRoot.offsetMax;
+            trt.SetAsLastSibling();
+            turnPage = tt.GetComponent<RawImage>();
+            turnPage.raycastTarget = false;
+            var paperImg = pageRoot.GetComponent<Image>();
+            paperColor = paperImg != null ? paperImg.color : new Color(0.97f, 0.96f, 0.92f);
+            tt.gameObject.SetActive(false);
         }
+
+        RawImage turnPage;
+        Color paperColor;
 
         /// Görselli sayfada metin, çizgiler ve delikler gizlenir (hepsi görselde var)
         void SetArtMode(Texture2D tex)
@@ -223,6 +248,7 @@ namespace LoadBearing
             StopAllCoroutines();
             coverRoutine = null;
             flipping = false;
+            if (turnPage != null) turnPage.gameObject.SetActive(false);
             pageRoot.localScale = Vector3.one;
             SetCoverImmediate(false);
             SetOpen(false);
@@ -267,7 +293,7 @@ namespace LoadBearing
         {
             if (!alerting || alertRenderers == null) return;
             float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
-            var c = new Color(1f, 1f, 1f, Mathf.Lerp(minAlpha, maxAlpha, s));
+            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(minAlpha, maxAlpha, s));
             foreach (var r in alertRenderers)
             {
                 if (r == null) continue;
@@ -312,7 +338,53 @@ namespace LoadBearing
         {
             int next = Mathf.Clamp(index + dir, 0, Mathf.Max(0, pages.Count - 1));
             if (next == index) return;
-            StartCoroutine(Flip(next));
+            bool art = turnPage != null && pages[index].pageTexture != null && pages[next].pageTexture != null;
+            StartCoroutine(art ? PageTurn(next, dir) : Flip(next));
+        }
+
+        /// Gerçek sayfa çevirme: sayfa halkalardan kalkar, havada döner, sola yatar.
+        /// İleri: alttaki yeni sayfa hemen görünür, eski sayfa çevrilir. Geri: önceki sayfa soldan gelip üstüne kapanır.
+        IEnumerator PageTurn(int next, int dir)
+        {
+            flipping = true;
+            var rt = (RectTransform)turnPage.transform;
+            Texture2D front;
+            float from, to;
+            if (dir > 0)
+            {
+                front = pages[index].pageTexture;
+                index = next;
+                ShowPage();
+                from = 0f; to = 180f;
+            }
+            else
+            {
+                front = pages[next].pageTexture;
+                from = 180f; to = 0f;
+            }
+
+            turnPage.gameObject.SetActive(true);
+            float d = Mathf.Max(0.05f, pageTurnTime);
+            for (float t = 0f; t <= d; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / d));
+                float ang = Mathf.Lerp(from, to, k);
+                SetTurnPose(rt, ang);
+                yield return null;
+            }
+            SetTurnPose(rt, to);
+            turnPage.gameObject.SetActive(false);
+            if (dir < 0) { index = next; ShowPage(); }
+            flipping = false;
+
+            void SetTurnPose(RectTransform r, float ang)
+            {
+                r.localRotation = Quaternion.Euler(0f, ang, 0f);           // halka ekseni etrafında döner, oyuncuya doğru kalkar
+                r.localPosition = new Vector3(r.localPosition.x, r.localPosition.y, -1.5f); // sayfanın 1,5 mm üstünde
+                bool showFront = ang < 90f;
+                turnPage.texture = showFront ? front : null;                // arka yüz boş kâğıt
+                turnPage.color = showFront ? Color.white : new Color(paperColor.r * 0.93f, paperColor.g * 0.93f, paperColor.b * 0.93f, 1f);
+            }
         }
 
         IEnumerator Flip(int next)

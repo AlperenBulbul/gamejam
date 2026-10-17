@@ -1,6 +1,7 @@
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace LoadBearing
 {
@@ -36,8 +37,25 @@ namespace LoadBearing
             var sc = StampController.Instance;
             string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}";
             if (key != lastKey) { lastKey = key; Refresh(); }
+
+            // İlk tur: haritada Boşluk satırı, oyuncu Boşluk'a ilk basana kadar turuncu yanıp söner
+            bool onMap = fc != null && fc.State == FocusState.Map && !fc.IsTransitioning;
+            if (onMap && !overlayLearned && Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            {
+                overlayLearned = true;
+                Refresh();
+            }
+            if (onMap && OverlayHintActive) Refresh(); // her kare: renk nabız gibi değişir
         }
-        void OnStateChanged(GameState _) => Refresh();
+
+        bool overlayLearned;
+        bool OverlayHintActive => !overlayLearned && GameManager.Instance != null && GameManager.Instance.Run != null && GameManager.Instance.Run.day == 1;
+
+        void OnStateChanged(GameState s)
+        {
+            if (s == GameState.MainMenu) overlayLearned = false;
+            Refresh();
+        }
         void OnFocusChanged(FocusState _) => Refresh();
 
         void Refresh()
@@ -49,7 +67,8 @@ namespace LoadBearing
 
             var focus = FocusController.Instance != null ? FocusController.Instance.State : FocusState.Desk;
             bool holding = StampController.Instance != null && StampController.Instance.IsHolding;
-            text.text = Build(Hints(gm.State, focus, holding));
+            int pulse = focus == FocusState.Map && OverlayHintActive ? 1 : -1; // haritada 2. satır = Boşluk
+            text.text = Build(Hints(gm.State, focus, holding), pulse);
         }
 
         static MapView map;
@@ -91,14 +110,22 @@ namespace LoadBearing
             }
         }
 
-        string Build((string key, string action)[] hints)
+        string Build((string key, string action)[] hints, int pulseIndex = -1)
         {
             string hex = ColorUtility.ToHtmlStringRGB(keyColor);
             var sb = new StringBuilder();
             for (int i = 0; i < hints.Length; i++)
             {
                 if (i > 0) sb.Append('\n');
-                sb.Append($"<color=#{hex}><b>{hints[i].key}</b></color>  {hints[i].action}");
+                if (i == pulseIndex)
+                {
+                    // Gösterge rengiyle (kırmızımsı turuncu) yanıp söner
+                    float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 1.4f * 2f * Mathf.PI);
+                    var c = Color.Lerp(Color.white, HintColors.Orange, k);
+                    string ph = ColorUtility.ToHtmlStringRGB(c);
+                    sb.Append($"<color=#{ph}><b>{hints[i].key}  {hints[i].action}</b></color>");
+                }
+                else sb.Append($"<color=#{hex}><b>{hints[i].key}</b></color>  {hints[i].action}");
             }
             return sb.ToString();
         }

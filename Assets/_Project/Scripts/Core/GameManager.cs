@@ -40,6 +40,7 @@ namespace LoadBearing
             GameConfig.Current = config;
             if (config == null) Debug.LogError("[GM] GameConfig atanmamış! Systems > GameManager'a GameConfig.asset'i sürükle.");
             if (GetComponent<ConstructionManager>() == null) gameObject.AddComponent<ConstructionManager>(); // şantiyeler
+            if (GetComponent<TutorialHints>() == null) gameObject.AddComponent<TutorialHints>();             // ilk tur göstergeleri
             NewRun();
         }
 

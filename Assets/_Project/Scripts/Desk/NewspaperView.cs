@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace LoadBearing
 {
     /// Masadaki gazete.
-    /// - Gün başında (DayIntro) kural klasörü gibi etrafında beyaz çerçeve parlar
+    /// - Gün başında (DayIntro) etrafında turuncu çerçeve parlar (oyuncuya 'buradan başla' göstergesi)
     /// - Tıklanınca kamera gazetenin tepesine gelir (okunur), ekranın altında "GÜNE BAŞLA" düğmesi çıkar
     /// - Düğme (ya da Enter): kamera masaya döner, mesai başlar, müşteriler gelir
     /// - Mesai sırasında da açılıp okunabilir (düğme yok)
@@ -247,7 +247,7 @@ namespace LoadBearing
         {
             if (!glowing || glowRenderers == null) return;
             float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
-            var c = new Color(1f, 1f, 1f, Mathf.Lerp(minAlpha, maxAlpha, s));
+            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(minAlpha, maxAlpha, s));
             foreach (var r in glowRenderers)
             {
                 if (r == null) continue;
