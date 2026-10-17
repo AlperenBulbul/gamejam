@@ -15,10 +15,10 @@ namespace LoadBearing
     {
         public Renderer target;
         public float pulsePerSecond = 1.4f;
-        [Range(0f, 1f)] public float minAlpha = 0.05f;
+        [Range(0f, 1f)] public float minAlpha = 0f;
         [Range(0f, 1f)] public float maxAlpha = 1f;
         public float margin = 0.008f;
-        public float thickness = 0.005f;
+        public float thickness = 0.007f;
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         GameObject frame;
@@ -93,6 +93,7 @@ namespace LoadBearing
             Bar(new Vector3(0f, -e2, 0f), new Vector3(e1 * 2f + th, th, depth), mat);
             Bar(new Vector3(0f, e2, 0f), new Vector3(e1 * 2f + th, th, depth), mat);
             bars = frame.GetComponentsInChildren<Renderer>(true);
+            HintFrameFx.Attach(frame, mat, pulsePerSecond, n); // koyu kenar + turuncu yansıma ışığı
             frame.SetActive(false);
         }
 

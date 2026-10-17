@@ -25,7 +25,27 @@ namespace LoadBearing
             GameEvents.FocusChanged -= OnFocusChanged;
         }
 
-        void Start() => Refresh();
+        [Tooltip("Tuş listesinin arka planı (okunur olsun diye koyu)")]
+        public Color backgroundColor = new Color(0f, 0f, 0f, 0.88f);
+
+        [Tooltip("Tanıtım sırasında bulanık arka planın karartması (0 siyah, 1 karartma yok)")]
+        [Range(0f, 1f)] public float blurTint = 0.45f;
+
+        UnityEngine.UI.Image bgImg;
+        UnityEngine.UI.RawImage blurImg;
+        RenderTexture blurRT;
+
+        void Start()
+        {
+            bgImg = root != null ? root.GetComponent<UnityEngine.UI.Image>() : null;
+            if (bgImg != null) bgImg.color = backgroundColor;
+            Refresh();
+        }
+
+        void OnDestroy()
+        {
+            if (blurRT != null) { blurRT.Release(); Destroy(blurRT); }
+        }
 
         string lastKey;
 
@@ -37,26 +57,150 @@ namespace LoadBearing
             var sc = StampController.Instance;
             string key = $"{(gm != null ? gm.State.ToString() : "-")}|{(fc != null ? fc.State.ToString() : "-")}|{(sc != null && sc.IsHolding)}|{OverlayVisible}";
             if (key != lastKey) { lastKey = key; Refresh(); }
-
-            // İlk tur: haritada Boşluk satırı, oyuncu Boşluk'a ilk basana kadar turuncu yanıp söner
-            bool onMap = fc != null && fc.State == FocusState.Map && !fc.IsTransitioning;
-            if (onMap && !overlayLearned && Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
-            {
-                overlayLearned = true;
-                Refresh();
-            }
-            if (onMap && OverlayHintActive) Refresh(); // her kare: renk nabız gibi değişir
         }
 
-        bool overlayLearned;
-        bool OverlayHintActive => !overlayLearned && GameManager.Instance != null && GameManager.Instance.Run != null && GameManager.Instance.Run.day == 1;
+        // ------------------------------------------------------------------ ilk açılışta ortada göster
+        readonly System.Collections.Generic.HashSet<FocusState> introduced = new System.Collections.Generic.HashSet<FocusState>();
+        Coroutine introRoutine;
+        Vector2 homePos;
+        bool homeSaved;
+
+        void PlayIntro(FocusState f)
+        {
+            if (root == null || introduced.Contains(f)) return;
+            if (f != FocusState.Folder && f != FocusState.Map && f != FocusState.Binder && f != FocusState.Monitor && f != FocusState.Newspaper) return;
+            introduced.Add(f);
+            if (introRoutine != null) StopCoroutine(introRoutine);
+            introRoutine = StartCoroutine(Intro());
+        }
+
+        System.Collections.IEnumerator Intro()
+        {
+            var panel = root.transform as RectTransform;
+            var parent = panel != null ? panel.parent as RectTransform : null;
+            if (panel == null || parent == null) yield break;
+            if (!homeSaved) { homePos = panel.anchoredPosition; homeSaved = true; }
+
+            // Ekranın görüntüsünü al (tuş listesi görünmeden) ve bulanıklaştır
+            panel.localScale = Vector3.zero;
+            yield return new WaitForEndOfFrame();
+            BuildBlur();
+            Canvas.ForceUpdateCanvases();
+
+            const float big = 1.6f;
+            var size = panel.rect.size;
+            var W = parent.rect.size;
+            // Panel sağ alta tutturulmuş (pivot sağ alt): ortaya getirmek için konum
+            var center = new Vector2(-W.x * 0.5f + size.x * big * 0.5f, W.y * 0.5f - size.y * big * 0.5f);
+
+            panel.anchoredPosition = center;
+            panel.localScale = Vector3.one * big;
+            if (bgImg != null) bgImg.enabled = false; // ortadayken kutu yok: yazı bulanık ekranın üstünde
+
+            // Bulanıklık yumuşakça gelir
+            for (float t = 0f; t < 0.25f; t += Time.unscaledDeltaTime) { SetBlurAlpha(t / 0.25f); yield return null; }
+            SetBlurAlpha(1f);
+
+            // Oyuncu ekrana tıklayana kadar ortada kalır
+            while (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) yield return null;
+
+            // Sağ alta kayar, bulanıklık kalkar, kutu geri gelir
+            if (bgImg != null) bgImg.enabled = true;
+            for (float t = 0f; t < 0.45f; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.45f);
+                panel.anchoredPosition = Vector2.Lerp(center, homePos, k);
+                panel.localScale = Vector3.one * Mathf.Lerp(big, 1f, k);
+                SetBlurAlpha(1f - k);
+                if (bgImg != null) { var c = backgroundColor; c.a *= k; bgImg.color = c; }
+                yield return null;
+            }
+            ResetPanel();
+            introRoutine = null;
+        }
+
+        /// Ekran görüntüsünü küçültüp büyüterek bulanıklaştırır ve tam ekran resim olarak gösterir
+        void BuildBlur()
+        {
+            if (blurImg == null)
+            {
+                var go = new GameObject("IntroBlur", typeof(RectTransform), typeof(UnityEngine.UI.RawImage));
+                var rt = (RectTransform)go.transform;
+                rt.SetParent(root.transform.parent, false);
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
+                rt.SetSiblingIndex(root.transform.GetSiblingIndex()); // tuş listesinin hemen arkasında
+                blurImg = go.GetComponent<UnityEngine.UI.RawImage>();
+                blurImg.raycastTarget = false;
+            }
+
+            var shot = ScreenCapture.CaptureScreenshotAsTexture();
+            if (shot == null) return;
+            RenderTexture cur = Temp(shot.width / 2, shot.height / 2);
+            Graphics.Blit(shot, cur);
+            Destroy(shot);
+            for (int i = 0; i < 4; i++) cur = Step(cur, cur.width / 2, cur.height / 2); // 1/32
+            for (int i = 0; i < 3; i++) cur = Step(cur, cur.width * 2, cur.height * 2); // yumuşak büyüt (1/4)
+
+            if (blurRT == null || blurRT.width != cur.width || blurRT.height != cur.height)
+            {
+                if (blurRT != null) { blurRT.Release(); Destroy(blurRT); }
+                blurRT = new RenderTexture(cur.width, cur.height, 0) { filterMode = FilterMode.Bilinear };
+            }
+            Graphics.Blit(cur, blurRT);
+            RenderTexture.ReleaseTemporary(cur);
+            blurImg.texture = blurRT;
+            blurImg.gameObject.SetActive(true);
+            SetBlurAlpha(0f);
+        }
+
+        static RenderTexture Temp(int w, int h)
+        {
+            var r = RenderTexture.GetTemporary(Mathf.Max(1, w), Mathf.Max(1, h), 0);
+            r.filterMode = FilterMode.Bilinear;
+            return r;
+        }
+
+        static RenderTexture Step(RenderTexture src, int w, int h)
+        {
+            var dst = Temp(w, h);
+            Graphics.Blit(src, dst);
+            RenderTexture.ReleaseTemporary(src);
+            return dst;
+        }
+
+        void SetBlurAlpha(float a)
+        {
+            if (blurImg == null) return;
+            blurImg.color = new Color(blurTint, blurTint, blurTint, Mathf.Clamp01(a));
+        }
+
+        void ResetPanel()
+        {
+            if (blurImg != null) blurImg.gameObject.SetActive(false);
+            if (bgImg != null) { bgImg.enabled = true; bgImg.color = backgroundColor; }
+            var panel = root != null ? root.transform as RectTransform : null;
+            if (panel == null || !homeSaved) return;
+            panel.anchoredPosition = homePos;
+            panel.localScale = Vector3.one;
+        }
 
         void OnStateChanged(GameState s)
         {
-            if (s == GameState.MainMenu) overlayLearned = false;
+            if (s == GameState.MainMenu)
+            {
+                introduced.Clear();
+                if (introRoutine != null) { StopCoroutine(introRoutine); introRoutine = null; }
+                ResetPanel();
+            }
             Refresh();
         }
-        void OnFocusChanged(FocusState _) => Refresh();
+        void OnFocusChanged(FocusState f)
+        {
+            Refresh();
+            if (f == FocusState.Desk && introRoutine != null) { StopCoroutine(introRoutine); introRoutine = null; ResetPanel(); }
+            else PlayIntro(f);
+        }
 
         void Refresh()
         {
@@ -67,8 +211,7 @@ namespace LoadBearing
 
             var focus = FocusController.Instance != null ? FocusController.Instance.State : FocusState.Desk;
             bool holding = StampController.Instance != null && StampController.Instance.IsHolding;
-            int pulse = focus == FocusState.Map && OverlayHintActive ? 1 : -1; // haritada 2. satır = Boşluk
-            text.text = Build(Hints(gm.State, focus, holding), pulse);
+            text.text = Build(Hints(gm.State, focus, holding));
         }
 
         static MapView map;
@@ -91,10 +234,10 @@ namespace LoadBearing
                         : new[] { ("Sol tık mühür", "Mührü al"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Map:
                     return new[] { ("Tekerlek", "Yakınlaştır"),
-                                   ("Boşluk", OverlayVisible ? "Nehir yatağı ve fay hattını gizle" : "Nehir yatağı ve fay hattını göster"),
+                                   ("Boşluk", OverlayVisible ? "Tehlikeli bölgeyi gizle" : "Tehlikeli bölgeyi göster"),
                                    ("Sağ tık / Esc", "Geri") };
                 case FocusState.Binder:
-                    return new[] { ("Tekerlek / Oklar", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
+                    return new[] { ("Tekerlek / A D", "Sayfa çevir"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Monitor:
                     return new[] { ("Monitör < > / A D", "Kanal değiştir"), ("1-7", "Kanal seç"), ("Sağ tık / Esc", "Geri") };
                 case FocusState.Newspaper:

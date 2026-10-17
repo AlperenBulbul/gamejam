@@ -67,6 +67,8 @@ namespace LoadBearing
         {
             alertRenderers = alertFrame != null ? alertFrame.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
             alertMpb = new MaterialPropertyBlock();
+            if (alertFrame != null && alertRenderers.Length > 0) // koyu kenar + turuncu yansıma ışığı
+                HintFrameFx.Attach(alertFrame, alertRenderers[0].sharedMaterial, pulsePerSecond, Vector3.up);
             EnsureUnderPage();
             EnsurePageArt();
         }
@@ -267,8 +269,8 @@ namespace LoadBearing
             var kb = Keyboard.current;
             if (kb != null)
             {
-                if (kb.rightArrowKey.wasPressedThisFrame) { Turn(+1); return; }
-                if (kb.leftArrowKey.wasPressedThisFrame) { Turn(-1); return; }
+                if (kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame) { Turn(+1); return; }
+                if (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame) { Turn(-1); return; }
             }
 
             var mouse = Mouse.current;
@@ -293,7 +295,7 @@ namespace LoadBearing
         {
             if (!alerting || alertRenderers == null) return;
             float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
-            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(minAlpha, maxAlpha, s));
+            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(0f, 1f, s));
             foreach (var r in alertRenderers)
             {
                 if (r == null) continue;

@@ -59,6 +59,15 @@ namespace LoadBearing
             if (State == FocusState.HoldingStamp) { SetState(FocusState.Desk); return; }
             if (!IsFocused) return;
             var rot = deskLook != null ? deskLook.DeskRotation : cameraTransform.rotation;
+            // İmleç neyi gösteriyorsa masaya dönünce nişan noktası onun üstünde olsun (ekran ortasına "sıfırlanmasın")
+            var cam = cameraTransform.GetComponent<Camera>();
+            if (deskLook != null && cam != null && !CursorController.IsAiming)
+            {
+                var ray = CursorController.PointerRay(cam);
+                Vector3 p = Physics.Raycast(ray, out var hit, 5f) ? hit.point : ray.GetPoint(1.5f);
+                var dir = p - deskPosition;
+                if (dir.sqrMagnitude > 1e-4f) rot = deskLook.LookToward(dir);
+            }
             StartCoroutine(Move(deskPosition, rot, FocusState.Desk));
         }
 

@@ -37,7 +37,17 @@ namespace LoadBearing
         [Tooltip("Kenarın en dibinde saniyede kaç 'ekran yüksekliği' kayar")]
         public float edgeSpeed = 1.1f;
 
-        public bool OverlayVisible => overlay != null && overlay.activeSelf;
+        public bool OverlayVisible => overlay != null && overlayOn;
+
+        [Header("Asetat animasyonu")]
+        [Tooltip("Asetatın üstten (kuzeyden) kayarak gelip haritaya oturma süresi")]
+        public float overlayAnimTime = 0.35f;
+        bool overlayOn;
+        Coroutine overlayAnim;
+        Vector3 overlayHome;
+        bool overlayHomeSaved;
+        MaterialPropertyBlock overlayMpb;
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         Transform cam;
         Camera camComp;
@@ -66,7 +76,7 @@ namespace LoadBearing
 
         void Start()
         {
-            if (overlay != null) overlay.SetActive(overlayStartsVisible);
+            SetOverlay(overlayStartsVisible, false);
 
             if (mapRenderer != null)
             {
@@ -106,7 +116,7 @@ namespace LoadBearing
         void OnStateChanged(GameState s)
         {
             // Yeni oyunda asetat başlangıç durumuna döner
-            if (s == GameState.MainMenu && overlay != null) overlay.SetActive(overlayStartsVisible);
+            if (s == GameState.MainMenu && overlay != null) SetOverlay(overlayStartsVisible, false);
         }
 
         void OnFocusChanged(FocusState f)
@@ -131,7 +141,60 @@ namespace LoadBearing
         public void ToggleOverlay()
         {
             if (overlay == null) return;
-            overlay.SetActive(!overlay.activeSelf);
+            SetOverlay(!overlayOn, true);
+        }
+
+        /// Asetat: açılırken haritanın üst kenarından biraz yukarıdan kayıp kâğıdın üstüne yatar, kapanırken geri kalkar
+        void SetOverlay(bool on, bool animate)
+        {
+            if (overlay == null) return;
+            if (!overlayHomeSaved) { overlayHome = overlay.transform.localPosition; overlayHomeSaved = true; }
+            overlayOn = on;
+            if (overlayAnim != null) { StopCoroutine(overlayAnim); overlayAnim = null; }
+            if (!animate || !isActiveAndEnabled)
+            {
+                overlay.transform.localPosition = overlayHome;
+                SetOverlayAlpha(1f);
+                overlay.SetActive(on);
+                return;
+            }
+            overlayAnim = StartCoroutine(AnimateOverlay(on));
+        }
+
+        System.Collections.IEnumerator AnimateOverlay(bool on)
+        {
+            var t = overlay.transform;
+            // Dünyada: 4 cm yukarı + 12 cm kuzeye (haritanın üst kenarı) -> yerel uzaya çevir
+            Vector3 lift = Vector3.up * 0.04f + Vector3.forward * 0.12f;
+            Vector3 off = t.parent != null ? t.parent.InverseTransformVector(lift) : lift;
+            Vector3 away = overlayHome + off;
+            overlay.SetActive(true);
+            float d = Mathf.Max(0.05f, overlayAnimTime);
+            for (float e = 0f; e < d; e += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.Clamp01(e / d);
+                float s = on ? 1f - (1f - k) * (1f - k) : k * k; // açılış: yavaşlayarak oturur, kapanış: hızlanarak kalkar
+                float p = on ? s : 1f - s;                        // 1 = yerinde
+                t.localPosition = Vector3.Lerp(away, overlayHome, p);
+                SetOverlayAlpha(p);
+                yield return null;
+            }
+            t.localPosition = overlayHome;
+            SetOverlayAlpha(1f);
+            overlay.SetActive(on);
+            overlayAnim = null;
+        }
+
+        void SetOverlayAlpha(float a)
+        {
+            if (overlay == null) return;
+            overlayMpb ??= new MaterialPropertyBlock();
+            foreach (var r in overlay.GetComponentsInChildren<Renderer>(true))
+            {
+                r.GetPropertyBlock(overlayMpb);
+                overlayMpb.SetColor(BaseColorId, new Color(1f, 1f, 1f, a));
+                r.SetPropertyBlock(overlayMpb);
+            }
         }
 
         void LateUpdate()

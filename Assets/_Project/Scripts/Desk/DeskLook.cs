@@ -53,6 +53,21 @@ namespace LoadBearing
             transform.rotation = DeskRotation;
         }
 
+        /// Masa bakışını verilen yöne çevir (sınırlar içinde). Yakın bakıştan çıkarken imlecin gösterdiği yer
+        /// nişan noktasının altında kalsın diye kullanılır.
+        public Quaternion LookToward(Vector3 dir)
+        {
+            var cfg = GameConfig.Current;
+            float maxYaw = cfg ? cfg.lookYaw : 60f;
+            float maxPitchUp = cfg ? cfg.lookPitch : 25f;
+            float maxPitchDown = cfg ? cfg.lookPitchDown : 45f;
+            var e = Quaternion.LookRotation(dir, Vector3.up).eulerAngles;
+            targetYaw = yaw = Mathf.Clamp(Mathf.DeltaAngle(baseYaw, e.y), -maxYaw, maxYaw);
+            targetPitch = pitch = Mathf.Clamp(Mathf.DeltaAngle(basePitch, e.x), -maxPitchUp, maxPitchDown);
+            yawVel = pitchVel = 0f;
+            return DeskRotation;
+        }
+
         /// Bakışı başlangıç açısına sıfırla (gün başı vb.)
         public void ResetLook()
         {

@@ -19,6 +19,11 @@ namespace LoadBearing
         [Header("Işık materyalleri (menü 21 bağlar)")]
         public Material ledOff, ledGreen, ledYellow, ledGrey;
 
+        [Header("Işık belirginliği")]
+        [Tooltip("Yanan ışığın parlaklık çarpanı")]
+        public float ledGlow = 7f;
+        public float ledScale = 1.3f;
+
         [Header("Düğme")]
         public float pressDepth = 0.004f;
         public float pressTime = 0.12f;
@@ -34,6 +39,7 @@ namespace LoadBearing
         Renderer hoverRend;
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int EmissionId = Shader.PropertyToID("_EmissionColor");
 
         void Start()
         {
@@ -49,6 +55,7 @@ namespace LoadBearing
             {
                 var t = FindDeep(transform, $"SM_Monitor_LED_{(char)('A' + i)}");
                 leds[i] = t != null ? t.GetComponent<Renderer>() : null;
+                if (t != null) t.localScale *= ledScale; // biraz büyüt: masadan da seçilsin
             }
             SetupFocus();
         }
@@ -209,7 +216,17 @@ namespace LoadBearing
                         default: m = ledGrey; break;
                     }
                 }
-                if (m != null && m != ledCurrent[i]) { leds[i].sharedMaterial = m; ledCurrent[i] = m; }
+                if (m != null && m != ledCurrent[i])
+                {
+                    leds[i].sharedMaterial = m;
+                    ledCurrent[i] = m;
+                    // Yanan ışık: güçlü parlama (materyal dosyasına dokunmadan)
+                    leds[i].GetPropertyBlock(mpb);
+                    if (m == ledGreen) { mpb.SetColor(EmissionId, new Color(0.25f, 1f, 0.35f) * ledGlow); mpb.SetColor(BaseColorId, new Color(0.4f, 1f, 0.5f)); }
+                    else if (m == ledYellow) { mpb.SetColor(EmissionId, new Color(1f, 0.75f, 0.1f) * ledGlow); mpb.SetColor(BaseColorId, new Color(1f, 0.9f, 0.4f)); }
+                    else { mpb.Clear(); }
+                    leds[i].SetPropertyBlock(mpb);
+                }
             }
         }
 

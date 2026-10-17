@@ -47,6 +47,15 @@ namespace LoadBearing
 
         void Awake()
         {
+            // Sayfalar boşsa (Inspector'da henüz doldurulmadıysa) varsayılan anlatımı kullan
+            bool empty = pages == null || pages.Length == 0;
+            if (!empty)
+            {
+                empty = true;
+                foreach (var pg in pages) if (pg != null && !string.IsNullOrEmpty(pg.body)) { empty = false; break; }
+            }
+            if (empty) pages = DefaultPages();
+
             prevButton.onClick.AddListener(Prev);
             nextButton.onClick.AddListener(Next);
             doneButton.onClick.AddListener(Done);
@@ -74,6 +83,41 @@ namespace LoadBearing
             else if ((kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) && IsLast) Done();
             else if (kb.escapeKey.wasPressedThisFrame) BackToMenu();
         }
+
+        /// Şu ana kadarki oynanışın anlatımı. Ekip Inspector'dan "pages" listesini doldurursa onlar kullanılır.
+        static HowToPlayPage[] DefaultPages() => new[]
+        {
+            new HowToPlayPage { title = "Hoş geldin, denetçi",
+                body = "Karaova Belediyesi Yapı Denetim Müdürlüğü'ndesin.\n\n" +
+                       "Gişeye gelen vatandaşların inşaat başvurularını incele, her birine <b>ONAY</b> ya da <b>RET</b> mührü bas.\n\n" +
+                       "Oyun iki gün sürer. Onayladığın binalar şantiyede yükselir ve sonunda bir depremle sınanır." },
+            new HowToPlayPage { title = "Kontroller",
+                body = "<b>Fare</b>: etrafa bak\n" +
+                       "<b>Sol tık</b>: nesneyi aç / incele\n" +
+                       "<b>Sağ tık / Esc</b>: geri dön\n\n" +
+                       "Sağ alttaki kısa liste, o an baktığın yerde hangi tuşların çalıştığını gösterir.\n" +
+                       "Turuncu yanıp sönen çerçeveler sıradaki adımı gösterir." },
+            new HowToPlayPage { title = "Güne başla",
+                body = "Gün başında masadaki <b>gazeteyi</b> aç ve <b>GÜNE BAŞLA</b>'ya bas (Enter).\n\n" +
+                       "Müşteriler sırayla gişeye gelir ve dosyalarını masana bırakır.\n\n" +
+                       "Müşteriyi çok bekletirsen sinirlenir; sabrı biterse çekip gider ve <b>ceza</b> alırsın." },
+            new HowToPlayPage { title = "Belgeyi incele",
+                body = "<b>Dosyaya</b> tıkla: mal sahibi, ada numarası, arsa alanı, istenen kat, kullanım, mühendis kaşesi ve zemin etüdü yazar.\n\n" +
+                       "Başvurunun kurallara uyup uymadığını anlamak için kural klasörüne ve haritaya bakman gerekir." },
+            new HowToPlayPage { title = "Kurallar ve harita",
+                body = "<b>Kural klasörü</b>: hangi başvurunun reddedileceğini söyler. Tekerlek ya da A / D ile sayfa çevir. 2. gün yeni kurallar eklenir.\n\n" +
+                       "<b>Harita</b>: dosyadaki ada numarasıyla arsayı bul. Tekerlekle yakınlaş.\n" +
+                       "<b>Boşluk</b>: tehlikeli bölgeyi (nehir yatağı ve fay hattı) göster / gizle. Açıkken numaralar zor okunur." },
+            new HowToPlayPage { title = "Karar ver",
+                body = "Dosya açıkken bir <b>mühre</b> tıkla, sonra formun üstüne tıkla.\n\n" +
+                       "Kurala uymayanı <b>reddet</b>, uyanı <b>onayla</b>. Kurallara uyan bir başvuruyu reddetmek de hatadır (<b>haksız ret</b>).\n\n" +
+                       "3 ceza ya da 3 haksız ret: kovulursun. Masaya bırakılan zarflara dikkat." },
+            new HowToPlayPage { title = "Şantiyeleri izle",
+                body = "Onayladığın her proje bir şantiye olur. Masadaki <b>monitörden</b> izle.\n\n" +
+                       "Ekranın altındaki <b>ok düğmeleri</b> (ya da A / D) kanal değiştirir.\n" +
+                       "Işıklar: <b>yeşil</b> çalışıyor, <b>sarı yanıp sönen</b> şantiyede hatalı işçi var.\n\n" +
+                       "Düzeltilmeyen hatalar binaya kusur olarak işler. Hazırsan başla!" },
+        };
 
         bool IsLast => pages == null || pages.Length == 0 || index >= pages.Length - 1;
 

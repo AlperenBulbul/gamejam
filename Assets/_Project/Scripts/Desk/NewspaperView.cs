@@ -211,7 +211,7 @@ namespace LoadBearing
             var lb = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds : new Bounds(Vector3.zero, new Vector3(0.3f, 0.01f, 0.4f));
             var sc = t.lossyScale;
             float ex = Mathf.Abs(lb.extents.x * sc.x) + 0.006f, ez = Mathf.Abs(lb.extents.z * sc.z) + 0.006f;
-            float h = Mathf.Max(0.008f, Mathf.Abs(lb.size.y * sc.y) + 0.006f), th = 0.004f;
+            float h = Mathf.Max(0.008f, Mathf.Abs(lb.size.y * sc.y) + 0.006f), th = 0.006f;
 
             glowFrame = new GameObject("GlowFrame");
             glowFrame.transform.SetParent(transform, false);
@@ -222,6 +222,7 @@ namespace LoadBearing
             Bar(new Vector3(0f, h * 0.5f, -ez), new Vector3(ex * 2f + th, h, th), glowMat);
             Bar(new Vector3(0f, h * 0.5f, ez), new Vector3(ex * 2f + th, h, th), glowMat);
             glowRenderers = glowFrame.GetComponentsInChildren<Renderer>(true);
+            HintFrameFx.Attach(glowFrame, glowMat, pulsePerSecond, Vector3.up); // koyu kenar + turuncu yansıma ışığı
             glowFrame.SetActive(false);
         }
 
@@ -247,7 +248,7 @@ namespace LoadBearing
         {
             if (!glowing || glowRenderers == null) return;
             float s = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * pulsePerSecond * 2f * Mathf.PI);
-            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(minAlpha, maxAlpha, s));
+            var c = new Color(HintColors.Orange.r, HintColors.Orange.g, HintColors.Orange.b, Mathf.Lerp(0f, 1f, s));
             foreach (var r in glowRenderers)
             {
                 if (r == null) continue;

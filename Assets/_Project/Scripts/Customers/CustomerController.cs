@@ -43,6 +43,17 @@ namespace LoadBearing
         string animState;
         float talkUntil;
         bool hasWalk, richAnim, hasReact;
+        bool tutorial;          // 1. günün ilk müşterisi: kaçmaz
+        float nextGrumble;
+        const float TutorialFloor = 0.2f; // Sinirli aşaması (0.15 üstü), patlama / gitme yok
+
+        bool IsTutorialCustomer()
+        {
+            var gm = GameManager.Instance;
+            if (gm == null || gm.Run == null || gm.Run.day != 1 || gm.Days == null || gm.Days.Length == 0) return false;
+            var first = gm.Days[0] != null && gm.Days[0].customers != null && gm.Days[0].customers.Length > 0 ? gm.Days[0].customers[0] : null;
+            return first == Data;
+        }
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static Transform glass;
@@ -139,6 +150,8 @@ namespace LoadBearing
             yield return Turn(Quaternion.LookRotation(FacePlayer()), 0.25f); // masaya (oyuncuya) dön
 
             // Dosyayı bırak, sabır işlemeye başlar
+            tutorial = IsTutorialCustomer();
+            nextGrumble = Time.time + 12f;
             Current = Phase.Waiting;
             Patience = 1f;
             SetStage(PatienceStage.Calm, speak: false);
@@ -148,6 +161,17 @@ namespace LoadBearing
             while (!decided)
             {
                 if (!FreezePatience) Patience -= Time.deltaTime / Mathf.Max(1f, Data.patienceSeconds);
+                if (tutorial)
+                {
+                    // İlk tur: sinirlenir ama gitmez (Sinirli aşamasında kalır, arada bir söylenir)
+                    Patience = Mathf.Max(Patience, TutorialFloor);
+                    if (Patience <= TutorialFloor + 0.001f && Time.time >= nextGrumble)
+                    {
+                        nextGrumble = Time.time + 12f;
+                        var line = dialogue != null ? dialogue.RandomFor(PatienceStage.Angry) : null;
+                        Say(line ?? "Hâlâ bekliyoruz evladım...");
+                    }
+                }
                 var cfg = GameManager.Instance != null ? GameManager.Instance.Config : null;
                 var st = cfg != null ? cfg.StageFor(Patience) : (Patience > 0f ? Stage : PatienceStage.Gone);
                 if (st != Stage) SetStage(st, speak: true);
