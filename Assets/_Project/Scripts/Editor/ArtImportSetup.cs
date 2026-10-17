@@ -80,7 +80,8 @@ namespace LoadBearing.EditorTools
                 if (Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
 
             // ---- Teslim 2 (revize)
-            foreach (var path in new[] { NewspaperDay1, RuleBlank, PosterTex })
+            foreach (var path in new[] { NewspaperDay1, RuleBlank, PosterTex, CoverTex, NoticeTex, CorkTex, ClockTex,
+                                         RulePage(1), RulePage(2), RulePage(3), RulePage(4) })
                 if (Exists(path) && Tex(path, ti => { ti.npotScale = TextureImporterNPOTScale.None; ti.maxTextureSize = 2048; ti.wrapMode = TextureWrapMode.Clamp; })) n++;
             foreach (var path in new[] { SkyDay1, SkyDay2, SkyRain })
                 if (Exists(path) && Tex(path, ti => { ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = false; ti.textureCompression = TextureImporterCompression.Uncompressed; })) n++;
@@ -98,6 +99,12 @@ namespace LoadBearing.EditorTools
         const string RainStreaks = "Assets/Art/3D/Textures/T_RainGlass_Streaks.png";
         const string RainSheet = "Assets/Art/3D/Textures/T_RainSheet.png";
         const string PosterTex = "Assets/Art/3D/Textures/T_Poster_Deprem.png";
+        // Revize 3
+        const string CoverTex = "Assets/Art/3D/Textures/T_RuleBinder_Cover.png";
+        const string NoticeTex = "Assets/Art/3D/Textures/T_NoticeBoard_Citizen.png";
+        const string CorkTex = "Assets/Art/3D/Textures/T_CorkBoard_Office.png";
+        const string ClockTex = "Assets/Art/3D/Textures/T_WallClock_Face.png";
+        public static string RulePage(int n) => $"Assets/Art/UI/Desk/T_RulePage_0{n}.png";
 
         static bool Exists(string path) => AssetImporter.GetAtPath(path) != null;
         static Texture2D Load(string path) => AssetDatabase.LoadAssetAtPath<Texture2D>(path);
@@ -149,6 +156,10 @@ namespace LoadBearing.EditorTools
             d["M_QueueLED"] = Mat("M_QueueLED", lit, m => { Base(m, null, new Color(1f, 0.12f, 0.06f)); Emission(m, new Color(1f, 0.12f, 0.06f) * 5f, null); });
             d["M_RainGlass_Drops"] = Mat("M_RainGlass_Drops", lit, m => { Base(m, Load(RainDrops), new Color(1f, 1f, 1f, 0.6f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
             d["M_RainGlass_Streaks"] = Mat("M_RainGlass_Streaks", lit, m => { Base(m, Load(RainStreaks), new Color(1f, 1f, 1f, 0.55f)); m.SetFloat("_Smoothness", 0.95f); Transparent(m); });
+            d["M_RuleBinder_Cover"] = Mat("M_RuleBinder_Cover", lit, m => { Base(m, Load(CoverTex), Color.white); m.SetFloat("_Smoothness", 0.2f); });
+            d["M_NoticeBoard_Citizen"] = Mat("M_NoticeBoard_Citizen", lit, m => { Base(m, Load(NoticeTex), Color.white); m.SetFloat("_Smoothness", 0.15f); });
+            d["M_CorkBoard_Office"] = Mat("M_CorkBoard_Office", lit, m => { Base(m, Load(CorkTex), Color.white); m.SetFloat("_Smoothness", 0.15f); });
+            d["M_WallClock_Face"] = Mat("M_WallClock_Face", lit, m => { Base(m, Load(ClockTex), Color.white); m.SetFloat("_Smoothness", 0.4f); });
             d["M_Poster_Deprem"] = Mat("M_Poster_Deprem", lit, m => { Base(m, Load(PosterTex), Color.white); m.SetFloat("_Smoothness", 0.25f); });
             d["M_RainSheet"] = Mat("M_RainSheet", unlit, m => { Base(m, Load(RainSheet), new Color(1f, 1f, 1f, 0.6f)); Transparent(m); });
             return d;

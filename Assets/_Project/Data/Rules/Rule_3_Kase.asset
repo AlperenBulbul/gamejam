@@ -16,3 +16,4 @@ MonoBehaviour:
   title: "M\xFChendis ka\u015Fesi"
   body: "Ba\u015Fvurudaki ruhsat numaras\u0131 m\xFChendis sicilinde B\u0130REB\u0130R bulunmal\u0131d\u0131r.\n\nM\xDCHEND\u0130S S\u0130C\u0130L\u0130\n\u0130MO-1047\n\u0130MO-2213\n\u0130MO-3390\n\u0130MO-4521\n\u0130MO-5876\n\u0130MO-6102"
   dayIntroduced: 2
+  pageTexture: {fileID: 2800000, guid: c1a63ec79645c2c45b9dc91166bd6197, type: 3}

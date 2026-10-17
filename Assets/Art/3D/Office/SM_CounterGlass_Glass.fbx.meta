@@ -7,6 +7,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_CorkBoard_Office
+    second: {fileID: 2100000, guid: f06c26de24f0c544f81cd74aea7c5203, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_FormPage_Front
     second: {fileID: 2100000, guid: 16340671bcdbf5644a8f1e031b59497b, type: 2}
   - first:
@@ -72,6 +77,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_NoticeBoard_Citizen
+    second: {fileID: 2100000, guid: db91501a9b279284d8a34895d62d8fbc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_Palette
     second: {fileID: 2100000, guid: a643566f64ede734cb78c3111a9cc759, type: 2}
   - first:
@@ -107,6 +117,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_RuleBinder_Cover
+    second: {fileID: 2100000, guid: 2206586b12928ee4997a5ef97011b5b8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_RulePage_Front
     second: {fileID: 2100000, guid: 415ffc2f5df1a414797ee549dcaa8c6c, type: 2}
   - first:
@@ -114,6 +129,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Sky
     second: {fileID: 2100000, guid: 7a0fbb35bd24c4d4f8cfedb1144efec5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_WallClock_Face
+    second: {fileID: 2100000, guid: 3f73620e01946ce47abe200eb90c5c7d, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

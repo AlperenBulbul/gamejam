@@ -16,3 +16,4 @@ MonoBehaviour:
   title: "Zemin et\xFCd\xFC"
   body: "5 ve \xFCzeri katl\u0131 yap\u0131lar i\xE7in zemin et\xFCd\xFC zorunludur.\n\n\u2022 Zemin et\xFCd\xFC yoksa: RET\n\u2022 Zemin YUMU\u015EAK ise: RET\n\u2022 Zemin SA\u011ELAM ise: kurala uygun"
   dayIntroduced: 2
+  pageTexture: {fileID: 2800000, guid: d3df9d8674139184887662fd2d4589eb, type: 3}

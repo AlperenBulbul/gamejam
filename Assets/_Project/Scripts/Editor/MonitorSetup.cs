@@ -141,6 +141,7 @@ namespace LoadBearing.EditorTools
                 var view = monitor.GetComponent<MonitorView>();
                 if (view == null) view = monitor.AddComponent<MonitorView>();
                 view.screenRenderer = screen;
+                view.fitMargin = 1.12f; // yakın bakışta ön yüz kadrajı doldursun
                 view.ledOff = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedOff.mat");
                 view.ledGreen = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedGreen.mat");
                 view.ledYellow = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/M_LedYellow.mat");

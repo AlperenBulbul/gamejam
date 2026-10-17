@@ -72,7 +72,12 @@ namespace LoadBearing.EditorTools
             // Duyuru panosu: yeni model, yeni yer. Fiş makinesi: yeni model, aynı yer.
             var oldNotice = FindDeep(layout, "SM_Cust_NoticeBox");
             Hide(oldNotice);
-            Place($"{Office}/SM_Cust_NoticeBox.fbx", group, Blender(-1.60f, 3.57f, 1.15f), log);
+            Place($"{Office}/SM_Cust_NoticeBox.fbx", group, Blender(-1.60f, 3.60f, 1.05f), log); // revize 3: vatandaş duyuru panosu, 90 x 68 cm
+
+            // Revize 3: ofis mantar panosu ve duvar saati yenilendi (yerleri aynı)
+            ReplaceLayoutChild(layout, group, "SM_CorkBoard", $"{Office}/SM_CorkBoard.fbx", log);
+            var clock = ReplaceLayoutChild(layout, group, "SM_WallClock", $"{Office}/SM_WallClock.fbx", log);
+            if (clock != null) SetupClock(clock, log);
             var oldTicket = FindDeep(layout, "SM_Cust_TicketMachine");
             if (oldTicket != null)
             {
@@ -146,6 +151,35 @@ namespace LoadBearing.EditorTools
                 EditorUtility.SetDirty(env);
             }
 
+            // ---- Kural sayfaları: tasarlanmış görseller (revize 3)
+            string[] ruleIds = { "1_Konum", "2_KatSiniri", "3_Kase", "4_Zemin" };
+            for (int i = 0; i < ruleIds.Length; i++)
+            {
+                var rd = AssetDatabase.LoadAssetAtPath<RuleData>($"Assets/_Project/Data/Rules/Rule_{ruleIds[i]}.asset");
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(ArtImportSetup.RulePage(i + 1));
+                if (rd == null || tex == null) continue;
+                rd.pageTexture = tex;
+                EditorUtility.SetDirty(rd);
+            }
+            log.Add("Kural sayfaları tasarım görselleriyle değiştirildi");
+
+            // ---- Kural klasörü kapalı modeli (revize 3: kapak dokulu). Menü 19 aşağıda yeniden çalışır.
+            var closedRoot = GameObject.Find("Desk/RuleBinder/Closed");
+            var binderPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{Props}/SM_RuleBinder.fbx");
+            if (closedRoot != null && binderPrefab != null)
+            {
+                var oldB = FindDeep(closedRoot.transform, "SM_RuleBinder");
+                if (oldB != null)
+                {
+                    var p = oldB.position; var r = oldB.rotation;
+                    Object.DestroyImmediate(oldB.gameObject);
+                    var nb = (GameObject)PrefabUtility.InstantiatePrefab(binderPrefab);
+                    nb.transform.SetParent(closedRoot.transform, false);
+                    nb.transform.SetPositionAndRotation(p, r);
+                    log.Add("Kural klasörü kapağı yenilendi");
+                }
+            }
+
             // ---- Kural sayfası 1: fay tehlike bölgesi
             var rule1 = AssetDatabase.LoadAssetAtPath<RuleData>("Assets/_Project/Data/Rules/Rule_1_Konum.asset");
             if (rule1 != null && rule1.body != Rule1Body)
@@ -185,10 +219,34 @@ namespace LoadBearing.EditorTools
 
             // Monitör sistemi yeni modele göre yeniden kurulur (16:9 Render Texture, ekran, düğmeler, ışıklar)
             MonitorSetup.Run();
+            // Kural klasörü yeni modellerle yeniden bağlanır (açık model, sayfa, YENİ sekmesi, parıltı)
+            BinderArtSetup.Run();
             // Masa düzeni (kural klasörü sağa ve biraz öne, dosya + mühürler öne)
             DeskLayout.Run();
 
             Debug.Log("<color=lime>[Load Bearing]</color> Tasarım revizeleri yüklendi.\n - " + string.Join("\n - ", log));
+        }
+
+        /// Ofis yerleşimindeki eski parçayı gizleyip aynı yere yeni dosyadaki modeli koyar
+        static Transform ReplaceLayoutChild(Transform layout, Transform group, string name, string fbx, List<string> log)
+        {
+            var old = FindDeep(layout, name);
+            if (old == null) { log.Add($"BULUNAMADI: {name}"); return null; }
+            var t = Place(fbx, group, old.position, log);
+            if (t != null) { t.rotation = old.rotation; Hide(old); }
+            return t;
+        }
+
+        static void SetupClock(Transform clock, List<string> log)
+        {
+            var wc = clock.GetComponent<WallClock>();
+            if (wc == null) wc = clock.gameObject.AddComponent<WallClock>();
+            wc.hourHand = FindDeep(clock, "SM_WallClock_HourHand");
+            wc.minuteHand = FindDeep(clock, "SM_WallClock_MinuteHand");
+            wc.secondHand = FindDeep(clock, "SM_WallClock_SecondHand");
+            var glass = FindDeep(clock, "SM_WallClock_Glass");
+            if (glass != null) foreach (var r in glass.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            log.Add($"Saat ibreleri: {(wc.hourHand != null && wc.minuteHand != null ? "bağlandı" : "BULUNAMADI")}");
         }
 
         static void ReplaceMonitor(List<string> log)
@@ -218,7 +276,9 @@ namespace LoadBearing.EditorTools
             if (!Directory.Exists(src)) { log.Add(src); return false; }
             // Revize/<paket>/Assets/Art klasörlerini bul (paket adı değişebilir)
             var artDirs = Directory.GetDirectories(src, "Art", SearchOption.AllDirectories)
-                                   .Where(d => Path.GetFileName(Path.GetDirectoryName(d)) == "Assets").ToList();
+                                   .Where(d => Path.GetFileName(Path.GetDirectoryName(d)) == "Assets")
+                                   .OrderBy(d => File.GetLastWriteTimeUtc(d)).ThenBy(d => d, System.StringComparer.Ordinal) // eski paket önce, yenisi üzerine yazar
+                                   .ToList();
             if (artDirs.Count == 0) { log.Add($"{src} içinde Assets/Art yok"); return false; }
 
             string dstRoot = Path.Combine(Application.dataPath, "Art");

@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 namespace LoadBearing
 {
     /// Masadaki güvenlik monitörü.
-    /// - Yakın bakış: kamera monitörün tam karşısına geçer; ekran + altındaki düğmeler ve ışıklar kadrajı doldurur
+    /// - Yakın bakış: kamera monitörün tam karşısına geçer; sadece ekran + altındaki düğmeler ve ışıklar kadrajı doldurur (kasa dışarıda)
     /// - Monitöre bakarken: ekranın altındaki ◀ / ▶ düğmelerine tıklamak (ya da A / D, sol / sağ ok) kanal değiştirir,
     ///   1-7 doğrudan kanal seçer
     /// - A–G ışıkları: şantiye yok = sönük, çalışıyor = yeşil, düzeltilmemiş hata = sarı yanıp söner (2 Hz),
@@ -14,7 +14,7 @@ namespace LoadBearing
     {
         public Renderer screenRenderer;
         [Tooltip("Yakın bakışta monitörün etrafında kalan pay (1 = ön yüz kadrajı tam doldurur)")]
-        public float focusMargin = 1.06f;
+        public float fitMargin = 1.12f;
 
         [Header("Işık materyalleri (menü 21 bağlar)")]
         public Material ledOff, ledGreen, ledYellow, ledGrey;
@@ -82,13 +82,17 @@ namespace LoadBearing
             // Ön yüzün tamamı (kasa + ekran + düğmeler + ışıklar): ekran düzleminde sınırlar
             var right = Vector3.Cross(Vector3.up, -normal).normalized; // kameradan bakınca sağ
             float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
-            foreach (var r in GetComponentsInChildren<Renderer>())
+            // Dünya eksenli kutular (renderer.bounds) eğik monitörde şişiyor: modelin kendi kutusunun köşeleri kullanılır
+            foreach (var mf in GetComponentsInChildren<MeshFilter>())
             {
-                if (!r.enabled || r is ParticleSystemRenderer) continue;
-                var b = r.bounds;
+                var r = mf.GetComponent<Renderer>();
+                if (r == null || !r.enabled || mf.sharedMesh == null) continue;
+                // Sadece ekran + altındaki düğmeler ve ışıklar (kasa / çerçeve kadraja girmesin)
+                if (!mf.name.StartsWith("SM_Monitor_") && r != screenRenderer) continue;
+                var b = mf.sharedMesh.bounds;
                 for (int c = 0; c < 8; c++)
                 {
-                    var p = b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1));
+                    var p = mf.transform.TransformPoint(b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)));
                     var d = p - center;
                     float x = Vector3.Dot(d, right), y = d.y;
                     minX = Mathf.Min(minX, x); maxX = Mathf.Max(maxX, x);
@@ -102,7 +106,7 @@ namespace LoadBearing
 
             float fov = cam != null ? cam.fieldOfView : 60f;
             float aspect = cam != null ? cam.aspect : 16f / 9f;
-            float dist = Mathf.Max(h, w / aspect) * 0.5f / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) * focusMargin;
+            float dist = Mathf.Max(h, w / aspect) * 0.5f / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) * fitMargin;
 
             it.focusPoint.position = frameCenter + normal * dist;
             it.focusPoint.rotation = Quaternion.LookRotation(-normal, Vector3.up);

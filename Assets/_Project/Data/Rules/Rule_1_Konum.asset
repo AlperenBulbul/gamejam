@@ -16,3 +16,4 @@ MonoBehaviour:
   title: "Yasak b\xF6lgeler"
   body: "\u2022 FAY HATTI: Kuzey Fay\u0131 tehlike b\xF6lgesine (asetatta k\u0131rm\u0131z\u0131 taral\u0131 alan) de\u011Fen arsaya yap\u0131 yap\u0131lamaz.\n\n\u2022 DERE YATA\u011EI: Kara Dere ta\u015Fk\u0131n alan\u0131n\u0131n (asetatta mavi taral\u0131 alan) i\xE7indeki arsaya yap\u0131 yap\u0131lamaz.\n\n<size=85%><i>Haritada Bo\u015Fluk tu\u015Fu: nehir yata\u011F\u0131 ve fay hatt\u0131 katman\u0131n\u0131 g\xF6ster / gizle.</i></size>"
   dayIntroduced: 1
+  pageTexture: {fileID: 2800000, guid: b16fd2fe08797b54682b4d9f3126c77e, type: 3}

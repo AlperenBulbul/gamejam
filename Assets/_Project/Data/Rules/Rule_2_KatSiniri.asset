@@ -16,3 +16,4 @@ MonoBehaviour:
   title: "Kat s\u0131n\u0131r\u0131"
   body: "Arsa alan\u0131na g\xF6re en fazla kat:\n\n\u2022 200 m\xB2 alt\u0131: en fazla 2 kat\n\u2022 200 \u2013 399 m\xB2: en fazla 4 kat\n\u2022 400 m\xB2 ve \xFCst\xFC: en fazla 6 kat"
   dayIntroduced: 1
+  pageTexture: {fileID: 2800000, guid: 7df64692c79ba0641ac0376c76429492, type: 3}

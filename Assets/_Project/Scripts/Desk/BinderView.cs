@@ -66,6 +66,41 @@ namespace LoadBearing
             alertRenderers = alertFrame != null ? alertFrame.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
             alertMpb = new MaterialPropertyBlock();
             EnsureUnderPage();
+            EnsurePageArt();
+        }
+
+        RawImage pageArt;
+
+        /// Tasarımcının sayfa görselleri (T_RulePage_01-04) için tam sayfa resim alanı
+        void EnsurePageArt()
+        {
+            if (pageRoot == null) return;
+            var t = pageRoot.Find("PageArt");
+            if (t == null)
+            {
+                var go = new GameObject("PageArt", typeof(RectTransform), typeof(RawImage));
+                t = go.transform;
+                t.SetParent(pageRoot, false);
+                var rt = (RectTransform)t;
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
+            }
+            pageArt = t.GetComponent<RawImage>();
+            pageArt.raycastTarget = false;
+            pageArt.enabled = false;
+        }
+
+        /// Görselli sayfada metin, çizgiler ve delikler gizlenir (hepsi görselde var)
+        void SetArtMode(Texture2D tex)
+        {
+            bool art = tex != null && pageArt != null;
+            if (pageArt != null) { pageArt.texture = tex; pageArt.enabled = art; }
+            foreach (Transform c in pageRoot)
+            {
+                if (pageArt != null && c == pageArt.transform) continue;
+                if (newSticker != null && c == newSticker.transform) continue;
+                c.gameObject.SetActive(!art);
+            }
         }
 
         /// Sayfa çevrilirken arkada modelin kendi (farklı renkli) sayfası görünmesin:
@@ -314,7 +349,8 @@ namespace LoadBearing
             title.text = r.title;
             body.text = r.body;
             pageNo.text = $"Sayfa {index + 1} / {pages.Count}";
-            newSticker.SetActive(newToday.Contains(r));
+            SetArtMode(r.pageTexture);
+            newSticker.SetActive(newToday.Contains(r) && r.pageTexture == null); // görselde YENİ etiketi basılı
         }
     }
 }
