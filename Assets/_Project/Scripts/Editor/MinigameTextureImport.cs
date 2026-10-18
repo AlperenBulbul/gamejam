@@ -64,7 +64,7 @@ namespace LoadBearing.EditorTools
             }
             catch { return 0; }
         }
-        static readonly string[] UiFolders = { "Minigame", "RuleBook", "FormButtons", "Tutorial" };
+        static readonly string[] UiFolders = { "Minigame", "RuleBook", "FormButtons", "Tutorial", "HowTo", "Pause" };
 
         void OnPreprocessTexture()
         {
@@ -77,6 +77,18 @@ namespace LoadBearing.EditorTools
                 ti.mipmapEnabled = false;
                 ti.filterMode = FilterMode.Point;
                 ti.textureCompression = TextureImporterCompression.Uncompressed;
+                return;
+            }
+
+            // Gazete ön sayfaları ve son görselleri: oranı korunur (2'nin katına büyütülmez), masadaki gazetede mipmap açık
+            if (p.StartsWith(Res + "Newspaper/") || p.StartsWith(Res + "Endings/"))
+            {
+                ti.textureType = TextureImporterType.Default;
+                ti.npotScale = TextureImporterNPOTScale.None;
+                ti.mipmapEnabled = p.Contains("/Newspaper/");
+                ti.wrapMode = TextureWrapMode.Clamp;
+                ti.maxTextureSize = 2048;
+                ti.sRGBTexture = true;
                 return;
             }
 

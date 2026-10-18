@@ -49,8 +49,9 @@ namespace LoadBearing
             else if (mouse != null)
             {
                 Vector2 d = mouse.delta.ReadValue();
-                targetYaw = Mathf.Clamp(targetYaw + d.x * sensitivity, -maxYaw, maxYaw);
-                targetPitch = Mathf.Clamp(targetPitch - d.y * sensitivity, -maxPitchUp, maxPitchDown); // + = aşağı
+                float sens = sensitivity * GameSettings.MouseScale; // Ayarlar > Fare hızı
+                targetYaw = Mathf.Clamp(targetYaw + d.x * sens, -maxYaw, maxYaw);
+                targetPitch = Mathf.Clamp(targetPitch - d.y * sens, -maxPitchUp, maxPitchDown); // + = aşağı
             }
 
             yaw = Mathf.SmoothDamp(yaw, targetYaw, ref yawVel, smoothTime);

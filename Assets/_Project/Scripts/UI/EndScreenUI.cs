@@ -7,7 +7,8 @@ using UnityEngine.UI;
 
 namespace LoadBearing
 {
-    /// - Gün geçişi: 1. günün minigame'i bitince bulanık masanın üstünde "2. gün" yazar, tıklayınca masaya açılır
+    /// - Gün geçişi: 1. gün bitince bulanık masanın üstünde "1. gün sonu" özeti (o gün olanlar) çıkar, tıklayınca
+    ///   "2. gün" yazısı gelir ve kendi kendine kaybolup masaya açılır
     /// - Bitiş ekranı (Ending): denetim raporu kâğıdı + son mührü, doğru yapılanlar / hatalar, Ana menüye dön / Oyundan çık
     /// GameManager bu bileşeni kendisi ekler, sahnede kurulum gerekmez.
     public class EndScreenUI : MonoBehaviour
@@ -20,6 +21,7 @@ namespace LoadBearing
 
         readonly List<CustomerData> angryLeft = new List<CustomerData>();
         int faultsFixed;
+        readonly Dictionary<int, int> faultsFixedByDay = new Dictionary<int, int>();
 
         Canvas canvas;
         GameObject dayCard, finish;
@@ -41,7 +43,13 @@ namespace LoadBearing
         }
 
         void OnLeft(CustomerData c, bool angry) { if (angry && c != null) angryLeft.Add(c); }
-        void OnFixed(ConstructionSite s) => faultsFixed++;
+        void OnFixed(ConstructionSite s)
+        {
+            faultsFixed++;
+            var gm = GameManager.Instance;
+            int d = gm != null && gm.Run != null ? gm.Run.day : 0;
+            faultsFixedByDay[d] = (faultsFixedByDay.TryGetValue(d, out var n) ? n : 0) + 1;
+        }
 
         void OnState(GameState s)
         {
@@ -50,7 +58,7 @@ namespace LoadBearing
             switch (s)
             {
                 case GameState.MainMenu:
-                    angryLeft.Clear(); faultsFixed = 0;
+                    angryLeft.Clear(); faultsFixed = 0; faultsFixedByDay.Clear();
                     StopAllCoroutines();
                     Blocking = false;
                     dayCard.SetActive(false);
@@ -75,7 +83,13 @@ namespace LoadBearing
         {
             var fc = FocusController.Instance;
             if (fc != null) fc.Back(); // monitörden masaya (siyah ekranın arkasında)
-            dayText.text = $"{day}. gün\n<size=30%><color=#D8D2C4>Kural kitapçığına yeni kural eklendi</color></size>";
+            // Önce biten günün özeti (tıklayınca geçer), sonra "N. gün" yazısı kendiliğinden kaybolur
+            FillSummary(day - 1);
+            dayText.text = "";
+            dayText.alpha = 0f;
+            summaryGroup.alpha = 1f;
+            summary.SetActive(true);
+            dayHint.SetActive(true);
             dayCard.SetActive(true);
             dayGroup.alpha = 1f;
             dayBlur.color = new Color(0.5f, 0.5f, 0.5f, 0f);
@@ -104,9 +118,126 @@ namespace LoadBearing
                 yield return null;
             }
             yield return null; // geçiş tıklaması masaya geçmesin
+
+            // Özet kalkar, "N. gün" belirir, biraz durur, kendiliğinden kaybolur
+            dayHint.SetActive(false);
+            for (float t = 0f; t < 0.35f; t += Time.unscaledDeltaTime) { summaryGroup.alpha = 1f - t / 0.35f; yield return null; }
+            summary.SetActive(false);
+            dayText.text = $"{day}. gün";
+            for (float t = 0f; t < 0.4f; t += Time.unscaledDeltaTime) { dayText.alpha = t / 0.4f; yield return null; }
+            dayText.alpha = 1f;
+            for (float t = 0f; t < 1.4f; t += Time.unscaledDeltaTime) yield return null;
             Blocking = false;
             for (float t = 0f; t < 0.6f; t += Time.unscaledDeltaTime) { dayGroup.alpha = 1f - t / 0.6f; yield return null; }
             dayCard.SetActive(false);
+            dayText.alpha = 1f;
+        }
+
+        // ------------------------------------------------------------------ gün sonu özeti
+
+        GameObject summary, dayHint;
+        CanvasGroup summaryGroup;
+        TextMeshProUGUI sumTitle, sumScore, sumGood, sumBad;
+
+        /// Biten günün olayları: kararlar, kaçan müşteriler, rüşvet, monitör kontrolü, yakalanan işçiler
+        void FillSummary(int d)
+        {
+            var good = new List<string>();
+            var bad = new List<string>();
+            int correct = 0, total = 0;
+            var gm = GameManager.Instance;
+            var run = gm != null ? gm.Run : null;
+            var cfg = gm != null ? gm.Config : null;
+            if (run != null)
+            {
+                bool bribeSeen = false;
+                foreach (var dec in run.decisions)
+                {
+                    var c = gm.FindCustomer(dec.customerId);
+                    if (c == null || c.day != d) continue;
+                    string name = !string.IsNullOrEmpty(c.displayName) ? c.displayName : dec.customerId;
+                    string why = cfg != null ? Validator.Explain(c, c.day, cfg) : null;
+                    if (c.bribe > 0) bribeSeen = true;
+                    total++;
+                    if (dec.approved == dec.valid) correct++;
+                    if (dec.approved && dec.valid) good.Add($"{name}: doğru onay");
+                    else if (!dec.approved && !dec.valid) good.Add($"{name}: doğru ret" + (string.IsNullOrEmpty(why) ? "" : $" <color=#6A655D>({why})</color>"));
+                    else if (dec.approved) bad.Add($"{name}: kurallara aykırı onay" + (string.IsNullOrEmpty(why) ? "" : $" <color=#6A655D>({why})</color>"));
+                    else bad.Add($"{name}: haksız ret <color=#6A655D>(başvuru uygundu)</color>");
+                }
+                foreach (var c in angryLeft)
+                    if (c != null && c.day == d) bad.Add($"{c.displayName}: bekletildi, sinirlenip gitti");
+                if (run.bribeTakenDay == d) bad.Add("Rüşvet zarfını aldın");
+                else if (bribeSeen) good.Add("Rüşvete yüz vermedin");
+            }
+            foreach (var r in MinigameDirector.Results)
+            {
+                if (r.day != d) continue;
+                if (r.defects == 0) good.Add($"{r.title} (Şantiye {r.site}): temiz iş");
+                else bad.Add($"{r.title} (Şantiye {r.site}): {r.defects} hata");
+            }
+            if (faultsFixedByDay.TryGetValue(d, out var fixedN) && fixedN > 0) good.Add($"{fixedN} hatalı işçiyi yakaladın");
+
+            sumTitle.text = $"{d}. gün sonu";
+            sumScore.text = total > 0 ? $"Doğru karar: {correct} / {total}" : "Bugün karar verilmedi";
+            sumGood.text = Lines(good, "Kayda değer bir şey yok.");
+            sumBad.text = Lines(bad, "Hata yok.");
+        }
+
+        void BuildSummary(RectTransform card)
+        {
+            summary = new GameObject("DaySummary", typeof(RectTransform), typeof(CanvasGroup));
+            var srt = (RectTransform)summary.transform;
+            srt.SetParent(card, false);
+            Stretch(srt);
+            summaryGroup = summary.GetComponent<CanvasGroup>();
+            summaryGroup.blocksRaycasts = false;
+
+            // Kâğıt (gölgeli, hafif eğik), bitiş raporuyla aynı dil
+            var shadow = Panel(srt, "PaperShadow", new Color(0f, 0f, 0f, 0.45f));
+            Place((RectTransform)shadow.transform, 0.5f, 0.5f, new Vector2(10f, 18f), new Vector2(1100f, 700f));
+            shadow.transform.localRotation = Quaternion.Euler(0f, 0f, -0.6f);
+            var paperGo = Panel(srt, "Paper", Paper);
+            var paper = (RectTransform)paperGo.transform;
+            Place(paper, 0.5f, 0.5f, new Vector2(0f, 30f), new Vector2(1100f, 700f));
+            paper.localRotation = Quaternion.Euler(0f, 0f, -0.6f);
+
+            var org = Label(paper, "Karaova Belediyesi  ·  Yapı Denetim Müdürlüğü  ·  Günlük özet", 22f, InkSoft, TextAlignmentOptions.MidlineLeft);
+            Place(org.rectTransform, 0f, 1f, new Vector2(70f + 480f, -52f), new Vector2(960f, 32f));
+            sumTitle = Label(paper, "", 54f, PaperInk, TextAlignmentOptions.MidlineLeft);
+            Place(sumTitle.rectTransform, 0f, 1f, new Vector2(70f + 480f, -108f), new Vector2(960f, 70f));
+            sumTitle.fontStyle = FontStyles.Bold;
+            sumScore = Label(paper, "", 24f, InkSoft, TextAlignmentOptions.MidlineRight);
+            Place(sumScore.rectTransform, 1f, 1f, new Vector2(-70f - 230f, -112f), new Vector2(460f, 36f));
+            SummaryRule(paper, -150f, 2f);
+
+            sumGood = SummaryColumn(paper, "Doğru yapılanlar", 70f);
+            sumBad = SummaryColumn(paper, "Hatalar", 570f);
+            summary.SetActive(false);
+        }
+
+        static void SummaryRule(RectTransform paper, float y, float thickness)
+        {
+            var line = Panel(paper, "Rule", new Color(0.13f, 0.12f, 0.11f, 0.55f));
+            var rt = (RectTransform)line.transform;
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(70f, y - thickness * 0.5f); rt.offsetMax = new Vector2(-70f, y + thickness * 0.5f);
+            line.GetComponent<Image>().raycastTarget = false;
+        }
+
+        TextMeshProUGUI SummaryColumn(RectTransform paper, string header, float left)
+        {
+            var head = Label(paper, header, 30f, PaperInk, TextAlignmentOptions.MidlineLeft);
+            Place(head.rectTransform, 0f, 1f, new Vector2(left + 230f, -196f), new Vector2(460f, 40f));
+            head.fontStyle = FontStyles.Bold;
+            var body = Label(paper, "", 24f, PaperInk, TextAlignmentOptions.TopLeft);
+            Place(body.rectTransform, 0f, 1f, new Vector2(left + 230f, -228f - 200f), new Vector2(460f, 400f));
+            body.textWrappingMode = TextWrappingModes.Normal;
+            body.enableAutoSizing = true;
+            body.fontSizeMin = 16f; body.fontSizeMax = 24f;
+            body.lineSpacing = 8f;
+            return body;
         }
 
         // ------------------------------------------------------------------ bulanık arka plan (gün kartı)
@@ -184,11 +315,14 @@ namespace LoadBearing
             badText.text = Lines(bad, "Hata yok.");
 
             // Rapor hazır; sinematik varsa onun altında bekler (video bitince arada oyun sahnesi görünmesin)
-            bool hasVideo = FindVideo(end) != null;
+            // Gazete sayfaları sadece 2. gün masada kullanılıyor (oyun sonunda gazete ara ekranı kapalı)
+            var pageTex = ShowEndingNewspaper ? NewspaperPages.Load(NewspaperPages.ForEnding(end)) : null;
+            bool covered = FindVideo(end) != null || pageTex != null;
             finish.SetActive(true);
-            finishGroup.alpha = hasVideo ? 1f : 0f;
+            finishGroup.alpha = covered ? 1f : 0f;
             if (stampRt != null) stampRt.localScale = Vector3.one * 1.6f;
             yield return PlayEndingVideo(end);
+            if (pageTex != null) yield return ShowNewspaper(pageTex); // ertesi sabahın gazetesi
 
             for (float t = 0f; t < 0.6f; t += Time.unscaledDeltaTime)
             {
@@ -336,6 +470,76 @@ namespace LoadBearing
             yield return null; // tıklama rapordaki düğmelere geçmesin
         }
 
+        const bool ShowEndingNewspaper = false;
+
+        /// Sinematikten sonra ertesi sabahın gazetesi (tam sayfa, hafif eğik), tıklayınca rapor
+        IEnumerator ShowNewspaper(Texture2D tex)
+        {
+            var root = new GameObject("EndingNewspaper", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            var rrt = (RectTransform)root.transform;
+            rrt.SetParent(canvas.transform, false);
+            Stretch(rrt);
+            root.GetComponent<Image>().color = new Color(0.06f, 0.055f, 0.05f, 1f);
+            var group = root.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            const float h = 940f, w = h * 1240f / 1600f;
+            var shadow = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
+            var srt = (RectTransform)shadow.transform;
+            srt.SetParent(rrt, false);
+            srt.sizeDelta = new Vector2(w, h);
+            srt.anchoredPosition = new Vector2(12f, -14f);
+            srt.localRotation = Quaternion.Euler(0f, 0f, -1.6f);
+            shadow.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.5f);
+
+            var page = new GameObject("Page", typeof(RectTransform), typeof(RawImage));
+            var prt = (RectTransform)page.transform;
+            prt.SetParent(rrt, false);
+            prt.sizeDelta = new Vector2(w, h);
+            prt.localRotation = Quaternion.Euler(0f, 0f, -1.6f);
+            var ri = page.GetComponent<RawImage>();
+            ri.texture = tex;
+            ri.raycastTarget = false;
+
+            var hint = new GameObject("Hint", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            var hr = (RectTransform)hint.transform;
+            hr.SetParent(rrt, false);
+            hr.anchorMin = hr.anchorMax = new Vector2(1f, 0f);
+            hr.pivot = new Vector2(1f, 0f);
+            hr.anchoredPosition = new Vector2(-48f, 40f);
+            hr.localScale = Vector3.one * 1.3f;
+            var hl = hint.GetComponent<HorizontalLayoutGroup>();
+            hl.spacing = 10f; hl.childAlignment = TextAnchor.MiddleRight;
+            hl.childControlWidth = hl.childControlHeight = true;
+            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
+            var hf = hint.GetComponent<ContentSizeFitter>();
+            hf.horizontalFit = hf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            KeyIcons.Add(hr, "LMB", null);
+            Label(hr, "Devam", 22f, new Color(0.85f, 0.83f, 0.78f), TextAlignmentOptions.MidlineLeft);
+
+            // Gazete masaya düşer gibi: hafif büyükten yerine oturur
+            for (float t = 0f; t < 0.45f; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.45f);
+                group.alpha = k;
+                prt.localScale = srt.localScale = Vector3.one * Mathf.Lerp(1.08f, 1f, k);
+                yield return null;
+            }
+            group.alpha = 1f;
+            prt.localScale = srt.localScale = Vector3.one;
+
+            float wait = 0f;
+            while (true)
+            {
+                wait += Time.unscaledDeltaTime;
+                if (wait > 0.5f && ClickedThisFrame()) break;
+                yield return null;
+            }
+            for (float t = 0f; t < 0.3f; t += Time.unscaledDeltaTime) { group.alpha = 1f - t / 0.3f; yield return null; }
+            Destroy(root);
+            yield return null; // tıklama rapordaki düğmelere geçmesin
+        }
+
         static string Lines(List<string> list, string empty)
         {
             if (list.Count == 0) return $"<color=#6A655D><i>{empty}</i></color>";
@@ -469,6 +673,9 @@ namespace LoadBearing
             dfit.horizontalFit = dfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             KeyIcons.Add(dhr, "LMB", null);
             Label(dhr, "Devam", 22f, new Color(0.85f, 0.83f, 0.78f), TextAlignmentOptions.MidlineLeft);
+            this.dayHint = dayHint;
+            BuildSummary((RectTransform)dayCard.transform);
+            dayHint.transform.SetAsLastSibling(); // ipucu kâğıdın üstünde
             dayCard.SetActive(false);
 
             // Bitiş ekranı: masaya bırakılmış bir denetim raporu (kâğıt + mühür), süslü kutu / parlama yok

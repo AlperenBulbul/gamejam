@@ -37,6 +37,46 @@ namespace LoadBearing
             if (syllables == null || syllables.Length == 0) syllables = GibberishSynth.Make(6, false);
             if (grumbles == null || grumbles.Length == 0) grumbles = GibberishSynth.Make(2, true);
             if (group != null) group.alpha = 0f;
+            UseShadow();
+        }
+
+        /// Kutu yerine yazının altında gölge (oyun görüntüsünü kapatmasın, yine okunsun)
+        void UseShadow()
+        {
+            if (background != null)
+            {
+                var img = background.GetComponent<Image>();
+                if (img != null) img.enabled = false;
+            }
+            if (text == null) return;
+            var m = text.fontMaterial; // örnek materyal: diğer yazıları etkilemez
+            m.EnableKeyword("UNDERLAY_ON");
+            m.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.9f));
+            m.SetFloat("_UnderlayOffsetX", 0.45f);
+            m.SetFloat("_UnderlayOffsetY", -0.55f);
+            m.SetFloat("_UnderlayDilate", 0.35f);
+            m.SetFloat("_UnderlaySoftness", 0.45f);
+            text.fontMaterial = m;
+            text.outlineWidth = 0.12f;
+            text.outlineColor = new Color32(0, 0, 0, 200);
+        }
+
+        // ------------------------------------------------------------------ alttaki yönerge çubuklarıyla çakışmasın
+
+        RectTransform root;
+        float baseY = float.NaN;
+
+        void LateUpdate()
+        {
+            if (root == null && group != null) root = group.transform as RectTransform;
+            if (root == null) return;
+            if (float.IsNaN(baseY)) baseY = root.anchoredPosition.y;
+            // İlk tur yönergesi / "Gazeteye git" gibi çubuk açıkken altyazı onun üstüne çıkar
+            bool barUp = GuidedTour.BarVisible || PromptBar.Visible;
+            float want = barUp ? Mathf.Max(baseY, 112f) : baseY;
+            var p = root.anchoredPosition;
+            p.y = Mathf.MoveTowards(p.y, want, Time.unscaledDeltaTime * 600f);
+            root.anchoredPosition = p;
         }
 
         void OnEnable() => GameEvents.StateChanged += OnStateChanged;
@@ -134,7 +174,7 @@ namespace LoadBearing
             if (stage == PatienceStage.Rage) { pitch -= 0.15f; vol *= 2.0f; }   // +6 dB
 
             voice.pitch = Mathf.Max(0.3f, pitch);
-            voice.PlayOneShot(pool[Random.Range(0, pool.Length)], Mathf.Clamp01(vol));
+            voice.PlayOneShot(pool[Random.Range(0, pool.Length)], Mathf.Clamp01(vol) * GameSettings.Sfx01); // Ayarlar > Efektler
         }
     }
 

@@ -28,6 +28,7 @@ namespace LoadBearing.EditorTools
         const string EmreDir = "Assets/Art/Characters/Emre";
         const string NaciyeDir = "Assets/Art/Characters/Naciye";
         const string ZeynepDir = "Assets/Art/Characters/Zeynep";
+        const string IsmailDir = "Assets/Art/Characters/Ismail";   // rüşvetçi (C7)
 
         [MenuItem("Load Bearing/20 - Müşteri karakterlerini kur", priority = 20)]
         public static void Run()
@@ -95,6 +96,7 @@ namespace LoadBearing.EditorTools
             var emre = BuildDay2("Emre", EmreDir, "SK_Customer_C8_Emre", "T_Customer_C8_Emre", "Standing Arguing", "Kızgın", log);
             var naciye = BuildDay2("Naciye", NaciyeDir, "SK_Customer_C5_Naciye", "T_Customer_C5_Naciye", "Talking", null, log);
             var zeynep = BuildDay2("Zeynep", ZeynepDir, "SK_Customer_C10_Zeynep", "T_Customer_C10_Zeynep", "Talking", "Standing Arguing", log);
+            var ismail = BuildIsmail(log);
 
             // ---- Selin
             GameObject selin = null;
@@ -149,7 +151,7 @@ namespace LoadBearing.EditorTools
                     {
                         if (c == null) continue;
                         GameObject want = c.id == "C1" ? hasan : c.id == "C2" ? mahmut : c.id == "C3" ? selin
-                                        : c.id == "C4" ? emre : c.id == "C5" ? naciye : c.id == "C6" ? zeynep : null;
+                                        : c.id == "C4" ? emre : c.id == "C5" ? naciye : c.id == "C6" ? zeynep : c.id == "C7" ? ismail : null;
                         // C6 artık Zeynep (Yalın Yapı temsilcisi, kadın)
                         if (c.id == "C6" && zeynep != null && c.displayName != "Zeynep Yalın")
                         {
@@ -199,7 +201,42 @@ namespace LoadBearing.EditorTools
             if (walk != null) states.Add(("Walk", walk, 1f));
             // Konuşma uzun sürsün; reddedilince kendi tepkisini 3,5 sn oynasın, sonra çıksın
             return BuildCharacter(name, model, FindAsset(dir, texName), states, float.NaN, log,
-                                  cc => { cc.talkHold = 2.5f; cc.rejectSeconds = 3.5f; });
+                                  cc => { cc.talkHold = 2.5f; cc.rejectSeconds = 3.5f; if (name == "Emre") cc.standBack = 0.4f; }); // Emre gişede biraz geride bekler
+        }
+
+        // ------------------------------------------------------------------ rüşvetçi (İsmail, C7)
+
+        /// Rüşvetçi: konuşma + bağırma klipleri.
+        ///  Bekleme: sakin -> duruş; sabırsız -> el kol hareketi (konuşma, yavaş); sinirli / patlama -> bağırma
+        ///  Kabul -> memnun el kol hareketi (konuşma, biraz hızlı); Ret -> bağırma (3,5 sn), sonra çıkış
+        static GameObject BuildIsmail(System.Text.StringBuilder log)
+        {
+            string model = FindAsset(IsmailDir, "SK_Customer_C12_Ismail");
+            if (model == null) { log.Append($"\n - UYARI: İsmail modeli yok ({IsmailDir}/SK_Customer_C12_Ismail.fbx)"); return null; }
+            SetupModelImporter(model);
+            AnimationClip talk = null, yell = null;
+            var talkPath = FindAsset(IsmailDir, "SK_Customer_C12_Ismail@Talking");
+            var yellPath = FindAsset(IsmailDir, "SK_Customer_C12_Ismail@Yelling");
+            if (talkPath != null) { SetupClipImporter(talkPath, "Talking", true); talk = Clip(talkPath); }
+            if (yellPath != null) { SetupClipImporter(yellPath, "Yelling", true); yell = Clip(yellPath); }
+            if (talk == null) talk = Clip($"{HasanDir}/HasanAmca@Talking.fbx");
+            if (yell == null) yell = Clip($"{HasanDir}/HasanAmca@Angry Point.fbx");
+            var walkPath = FindAsset(SelinDir, "A_Customer_Selin_Walk");
+            var walk = walkPath != null ? Clip(walkPath) : null;
+            var states = new List<(string, Motion, float)>
+            {
+                ("Idle", talk, 0f),
+                ("Talking", talk, 1f),
+                ("Impatient", talk, 0.7f),   // bekletilince: sabırsız el kol hareketi
+                ("Angry", yell, 0.85f),      // uzun bekletilince: bağırma
+                ("Rage", yell, 1.1f),
+                ("Happy", talk, 1.15f),      // onaylanınca: memnun
+                ("Sad", yell, 1f),           // reddedilince: bağırma
+            };
+            if (walk != null) states.Add(("Walk", walk, 1f));
+            log.Append($"\n - İsmail (rüşvetçi): konuşma {(talkPath != null ? "var" : "YOK")}, bağırma {(yellPath != null ? "var" : "YOK")}");
+            return BuildCharacter("Ismail", model, FindAsset(IsmailDir, "T_Customer_C12_Ismail"), states, float.NaN, log,
+                                  cc => { cc.talkHold = 2.0f; cc.happySeconds = 2.5f; cc.rejectSeconds = 3.5f; });
         }
 
         // ------------------------------------------------------------------ Selin dosyaları

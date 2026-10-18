@@ -109,6 +109,7 @@ namespace LoadBearing
         {
             if (animator == null || !animator.isActiveAndEnabled) return;
             bool talking = Time.time < talkUntil;
+            if (walking && Current != Phase.WalkIn && Current != Phase.WalkOut) { Play("Walk", "Idle"); return; } // banka gidip gelirken
             switch (Current)
             {
                 case Phase.WalkIn:
@@ -193,10 +194,31 @@ namespace LoadBearing
                 var st = cfg != null ? cfg.StageFor(Patience) : (Patience > 0f ? Stage : PatienceStage.Gone);
                 if (st != Stage) SetStage(st, speak: true);
                 if (Stage == PatienceStage.Gone) { LeaveAngry(); break; }
-                AnimateWaiting();
+                // Bekletildi (Sabırsız): arkadaki banka gidip oturur (Murat Demir)
+                if (!seated && Data.sitsWhenKept && !tutorial && Stage >= PatienceStage.Impatient)
+                {
+                    seated = true;
+                    sitRoutine = StartCoroutine(GoSit());
+                }
+                if (!seated) AnimateWaiting();
                 yield return null;
             }
             ResetPose();
+
+            // Banktaysa (ya da banka yürüyorsa) kalkar; karar verildiyse gişeye geri gelir, sinirliyse kapıya gider
+            if (seated)
+            {
+                if (sitRoutine != null) { StopCoroutine(sitRoutine); sitRoutine = null; }
+                walking = false;
+                yield return StandUp();
+                if (!angryExit)
+                {
+                    yield return Turn(Quaternion.LookRotation(Flat(spotPos - transform.position)), 0.25f);
+                    yield return Walk(transform.position, spotPos, WalkSecondsTo(spotPos));
+                    yield return Turn(Quaternion.LookRotation(FacePlayer()), 0.25f);
+                }
+                seated = false;
+            }
 
             // Tepki (sinirli çıkışta tepki yok, direkt gider)
             if (!angryExit)
@@ -353,16 +375,17 @@ namespace LoadBearing
             return cam != null ? Flat(cam.transform.position - transform.position) : Vector3.back;
         }
 
-        IEnumerator Walk(Vector3 from, Vector3 to)
+        IEnumerator Walk(Vector3 from, Vector3 to, float seconds = -1f)
         {
+            float dur = seconds > 0f ? seconds : walkTime;
             var dir = Flat(to - from);
             transform.rotation = Quaternion.LookRotation(dir);
             float steps = Mathf.Max(2f, Vector3.Distance(from, to) / 0.35f);
             walking = true;
-            for (float t = 0f; t < walkTime; t += Time.deltaTime)
+            for (float t = 0f; t < dur; t += Time.deltaTime)
             {
                 // Yürüme animasyonu varsa sabit hızla yürü (ayak kaymasın), yoksa yumuşak başla-dur + zıplama
-                float k = hasWalk ? t / walkTime : Mathf.SmoothStep(0f, 1f, t / walkTime);
+                float k = hasWalk ? t / dur : Mathf.SmoothStep(0f, 1f, t / dur);
                 transform.position = Vector3.Lerp(from, to, k);
                 if (visual != null && !hasWalk) visual.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(k * steps * Mathf.PI)) * 0.035f, 0f);
                 yield return null;
@@ -407,6 +430,126 @@ namespace LoadBearing
                 yield return null;
             }
             if (visual != null) visual.localRotation = Quaternion.identity;
+        }
+
+        // ------------------------------------------------------------------ bankta oturma (bekletilince, CustomerData.sitsWhenKept)
+        // Oturma animasyonu yok: insan iskeletinin bacakları / kolları LateUpdate'te oturuş pozuna bükülür,
+        // gövde bankın oturak yüksekliğine indirilir. Üst gövde kendi bekleme animasyonunu oynamaya devam eder.
+
+        const string SitLine = "Ben şuraya oturayım, işim bitince seslenin.";
+        const float SeatRatio = 0.47f / 0.9f;   // SM_Cust_Bench: oturak 0,47 m, toplam yükseklik 0,9 m
+        const float HipAboveSeat = 0.10f;      // kalça ekleminin oturak üstündeki yüksekliği
+
+        bool seated;            // bankta ya da banka gidiyor
+        float sitW;             // oturma pozunun ağırlığı (0 ayakta, 1 oturuyor)
+        float seatY;
+        Coroutine sitRoutine;
+
+        float WalkSecondsTo(Vector3 target) => Mathf.Clamp(Vector3.Distance(Flat(transform.position), Flat(target)) / 0.8f, 0.6f, 5f);
+
+        IEnumerator GoSit()
+        {
+            if (visual != null) { visual.localPosition = Vector3.zero; visual.localRotation = Quaternion.identity; }
+            Say(SitLine);
+            FindSeat(out var seatPos, out var face, out seatY);
+            yield return new WaitForSeconds(0.8f); // söyleyip öyle yürüsün
+            yield return Turn(Quaternion.LookRotation(Flat(seatPos - transform.position)), 0.3f);
+            yield return Walk(transform.position, seatPos, WalkSecondsTo(seatPos));
+            yield return Turn(Quaternion.LookRotation(face), 0.35f);
+            for (float t = 0f; t < 0.6f; t += Time.deltaTime) { sitW = Mathf.SmoothStep(0f, 1f, t / 0.6f); yield return null; }
+            sitW = 1f;
+            sitRoutine = null;
+        }
+
+        IEnumerator StandUp()
+        {
+            float start = sitW;
+            if (start > 0f)
+                for (float t = 0f; t < 0.45f; t += Time.deltaTime) { sitW = start * (1f - Mathf.SmoothStep(0f, 1f, t / 0.45f)); yield return null; }
+            sitW = 0f;
+            if (visual != null) visual.localPosition = Vector3.zero;
+        }
+
+        /// Sahnedeki müşteri bankı (SM_Cust_Bench): gişeye yakın ucuna, yüzü oyuncuya dönük oturur
+        void FindSeat(out Vector3 pos, out Vector3 face, out float seatTop)
+        {
+            Renderer bench = null;
+            foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                if (r != null && r.enabled && r.gameObject.activeInHierarchy && r.name.StartsWith("SM_Cust_Bench")) { bench = r; break; }
+
+            Vector3 center; float floor, height, halfLen; Vector3 along;
+            if (bench != null)
+            {
+                var b = bench.bounds;
+                center = b.center; floor = b.min.y; height = b.size.y;
+                bool alongX = b.extents.x >= b.extents.z;
+                along = alongX ? Vector3.right : Vector3.forward;
+                halfLen = alongX ? b.extents.x : b.extents.z;
+            }
+            else
+            {
+                Debug.LogWarning("[Müşteri] SM_Cust_Bench bulunamadı, varsayılan bank konumu kullanılıyor");
+                center = new Vector3(-1.25f, 0.45f, 3.21f); floor = 0f; height = 0.9f;
+                along = Vector3.right; halfLen = 0.65f;
+            }
+            seatTop = floor + height * SeatRatio;
+
+            // Yüz: bankın uzun kenarına dik, oyuncuya doğru (sırtı arkalığa)
+            var perp = Vector3.Cross(along, Vector3.up).normalized;
+            var cam = Camera.main;
+            Vector3 toCam = cam != null ? cam.transform.position - center : spotPos - center;
+            face = Vector3.Dot(toCam, perp) >= 0f ? perp : -perp;
+
+            // Gişeye yakın uca otur, kalça oturağın arka yarısında
+            float side = Vector3.Dot(spotPos - center, along) >= 0f ? 1f : -1f;
+            pos = center + along * (side * halfLen * 0.45f) - face * 0.06f;
+            pos.y = transform.position.y;
+        }
+
+        void LateUpdate()
+        {
+            if (sitW <= 0.001f || animator == null || !animator.isHuman) return;
+            ApplySitPose(sitW);
+        }
+
+        void ApplySitPose(float w)
+        {
+            var fwd = Flat(transform.forward).normalized;
+            var right = Vector3.Cross(Vector3.up, fwd).normalized;
+            var down = Vector3.down;
+
+            // Bacaklar: uyluk öne (dizler hafif açık), baldır aşağı
+            Aim(HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, fwd - right * 0.12f + down * 0.05f, w);
+            Aim(HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot, down + fwd * 0.12f, w);
+            Aim(HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, fwd + right * 0.12f + down * 0.05f, w);
+            Aim(HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot, down + fwd * 0.12f, w);
+
+            // Kollar: omuzdan aşağı, eller dizlerin üstünde
+            Aim(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, down + fwd * 0.45f - right * 0.08f, w * 0.9f);
+            Aim(HumanBodyBones.LeftLowerArm, HumanBodyBones.LeftHand, fwd + down * 0.55f + right * 0.15f, w * 0.9f);
+            Aim(HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm, down + fwd * 0.45f + right * 0.08f, w * 0.9f);
+            Aim(HumanBodyBones.RightLowerArm, HumanBodyBones.RightHand, fwd + down * 0.55f - right * 0.15f, w * 0.9f);
+
+            // Gövdeyi oturağa indir (kalça oturak + HipAboveSeat yüksekliğinde)
+            var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            if (hips != null && visual != null)
+            {
+                float offsetNow = visual.position.y - transform.position.y;
+                float hipStanding = hips.position.y - offsetNow;
+                visual.localPosition = new Vector3(0f, (seatY + HipAboveSeat - hipStanding) * w, 0f);
+            }
+        }
+
+        /// Kemiği, çocuğuna giden yön hedef yöne bakacak şekilde (dünya uzayında) döndürür
+        void Aim(HumanBodyBones bone, HumanBodyBones child, Vector3 dir, float w)
+        {
+            var t = animator.GetBoneTransform(bone);
+            var c = animator.GetBoneTransform(child);
+            if (t == null || c == null) return;
+            var cur = c.position - t.position;
+            if (cur.sqrMagnitude < 1e-6f || dir.sqrMagnitude < 1e-6f) return;
+            var full = Quaternion.FromToRotation(cur, dir);
+            t.rotation = Quaternion.Slerp(Quaternion.identity, full, w) * t.rotation;
         }
 
         // ------------------------------------------------------------------ çıkış klibi (Selin: selam verip / söylenerek döner, yürür)

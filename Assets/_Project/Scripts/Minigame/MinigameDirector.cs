@@ -320,7 +320,7 @@ namespace LoadBearing
         /// Telsizden bir cümle: başta cızırtı, konuşma boyunca altta hafif cızırtı, sonda kısa cızırtı
         IEnumerator RadioLine(string line)
         {
-            if (radioAudio != null && crackle != null) radioAudio.PlayOneShot(crackle, 0.8f);
+            if (radioAudio != null && crackle != null) radioAudio.PlayOneShot(crackle, 0.8f * GameSettings.Sfx01);
             yield return new WaitForSeconds(0.35f);
             Say(line);
             float talk = TalkTime(line);
@@ -328,12 +328,12 @@ namespace LoadBearing
             {
                 radioHiss.clip = hissClip;
                 radioHiss.loop = true;
-                radioHiss.volume = 0.22f;
+                radioHiss.volume = 0.22f * GameSettings.Sfx01;
                 radioHiss.Play();
             }
             yield return new WaitForSeconds(talk);
             if (radioHiss != null) radioHiss.Stop();
-            if (radioAudio != null && crackle != null) radioAudio.PlayOneShot(crackle, 0.6f);
+            if (radioAudio != null && crackle != null) radioAudio.PlayOneShot(crackle, 0.6f * GameSettings.Sfx01);
             yield return new WaitForSeconds(Mathf.Max(0.5f, LineTime(line) - talk));
         }
 

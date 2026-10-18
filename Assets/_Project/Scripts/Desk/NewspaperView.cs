@@ -131,6 +131,62 @@ namespace LoadBearing
         {
             if (s == GameState.MainMenu) lastTarget = FocusState.Desk;
             SetGlow(s == GameState.DayIntro);
+            if (s == GameState.DayIntro || s == GameState.MainMenu) ApplyFrontPage();
+        }
+
+        // ------------------------------------------------------------------ günün ön sayfası
+
+        MaterialPropertyBlock pagePb;
+        static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+
+        /// 2. gün ve sonrası: dünkü olaya göre hazır ön sayfa (NewspaperPages). 1. gün / menü: ilk gün gazetesi (materyalin kendisi).
+        /// Sadece gazete ön yüzü materyaline uygulanır (modelin diğer parçaları palet dokusunu kullanıyor).
+        void ApplyFrontPage()
+        {
+            if (paper == null) return;
+            // Önceki sürüm tüm renderer'a doku basıyordu: o bloğu temizle (vurgu rengi kalır)
+            pagePb ??= new MaterialPropertyBlock();
+            paper.GetPropertyBlock(pagePb);
+            if (pagePb.HasTexture(BaseMapId) || pagePb.HasTexture(MainTexId))
+            {
+                var keep = new MaterialPropertyBlock();
+                if (pagePb.HasColor(BaseColorId)) keep.SetColor(BaseColorId, pagePb.GetColor(BaseColorId));
+                paper.SetPropertyBlock(keep);
+            }
+
+            var front = FrontSlot(out int slot);
+            if (front == null) { Debug.LogWarning("[Gazete] Ön sayfa materyali (M_NewspaperFront) bulunamadı"); return; }
+            var gm = GameManager.Instance;
+            string name = gm != null && gm.State == GameState.DayIntro ? NewspaperPages.ForDay(gm) : null;
+            var tex = NewspaperPages.Load(name);
+            var pb = new MaterialPropertyBlock();
+            if (tex != null)
+            {
+                pb.SetTexture(BaseMapId, tex);
+                pb.SetTexture(MainTexId, tex);
+                Debug.Log($"[Gazete] Gün {gm.Run.day} ön sayfası: {name}");
+            }
+            front.SetPropertyBlock(pb, slot); // boş blok = materyalin kendi dokusu (ilk gün gazetesi)
+        }
+
+        /// Gazete ön sayfası materyalinin sırası (adında / dokusunda "Newspaper" geçen)
+        Renderer FrontSlot(out int slot)
+        {
+            slot = -1;
+            foreach (var r in GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || r.name.StartsWith("Bar") || r.name == "Back" || r.name == "Halo") continue; // parıltı çerçevesi
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var m = mats[i];
+                    if (m == null) continue;
+                    var t = m.HasProperty(BaseMapId) ? m.GetTexture(BaseMapId) : m.mainTexture;
+                    if (m.name.Contains("Newspaper") || (t != null && t.name.Contains("Newspaper"))) { slot = i; return r; }
+                }
+            }
+            return null;
         }
 
         /// Gün başında (her gün) gazete açılana kadar parlar; masadayken altta "Gazeteye git" yazar.
@@ -202,9 +258,9 @@ namespace LoadBearing
             lrt.offsetMin = lrt.offsetMax = Vector2.zero;
             var tmp = label.GetComponent<TextMeshProUGUI>();
             tmp.text = "GÜNE BAŞLA";
-            tmp.fontSize = 38f;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.characterSpacing = 4f;
+            var heavy = UiFonts.Heavy; // Inter ExtraBold: tabela gibi sıkı, kalın
+            if (heavy != null) { tmp.font = heavy; tmp.fontStyle = FontStyles.Normal; tmp.characterSpacing = 1f; tmp.fontSize = 40f; }
+            else { tmp.fontSize = 38f; tmp.fontStyle = FontStyles.Bold; tmp.characterSpacing = 4f; }
             tmp.color = new Color(0.07f, 0.075f, 0.08f);
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.raycastTarget = false;

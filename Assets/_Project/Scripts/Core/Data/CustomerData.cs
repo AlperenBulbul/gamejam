@@ -34,6 +34,8 @@ namespace LoadBearing
         public Material variantMaterial;
         [Tooltip("Bu müşterinin karakter prefabı. Boşsa CustomerQueue cinsiyete göre varsayılanı kullanır.")]
         public GameObject characterPrefab;
+        [Tooltip("Bekletilince (Sabırsız aşaması) arkadaki banka gidip oturur, karar verilince gişeye geri gelir")]
+        public bool sitsWhenKept;
 
         [Header("Replikler")]
         [TextArea] public string greeting;

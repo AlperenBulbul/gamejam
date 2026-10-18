@@ -49,12 +49,29 @@ namespace LoadBearing
         {
             GameEvents.StateChanged += OnState;
             GameEvents.Stamped += OnStamped;
+            GameEvents.FocusTransitionStarted += OnTransition;
         }
 
         void OnDisable()
         {
             GameEvents.StateChanged -= OnState;
             GameEvents.Stamped -= OnStamped;
+            GameEvents.FocusTransitionStarted -= OnTransition;
+        }
+
+        /// Kamera yakın bakışa geçmeye başlar başlamaz o nesnenin çerçevesi kalksın
+        /// (geçiş bitene kadar beklenince belgeye yaklaşırken turuncu çerçeve ~1 sn ekranda kalıyordu)
+        void OnTransition(FocusState from, FocusState to)
+        {
+            if (!Running) return;
+            if (to == FocusState.Folder) Show(folderGlow, false);
+            if (to != FocusState.Desk && to != FocusState.HoldingStamp) ClearFrames();
+        }
+
+        void ClearFrames()
+        {
+            foreach (var f in frames) if (f != null) Destroy(f);
+            frames.Clear();
         }
 
         bool stamped;
@@ -250,7 +267,9 @@ namespace LoadBearing
 
         // ------------------------------------------------------------------ alttaki küçük yazı
 
-        GameObject bar;
+        static GameObject bar;
+        /// Alttaki yönerge çubuğu ekranda (altyazı bunun üstüne çıkar)
+        public static bool BarVisible => bar != null && bar.activeInHierarchy;
         RectTransform barRt;
         TextMeshProUGUI barText;
 

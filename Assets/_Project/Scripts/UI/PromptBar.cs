@@ -13,6 +13,8 @@ namespace LoadBearing
     public class PromptBar : MonoBehaviour
     {
         static PromptBar inst;
+        /// Çubuk şu an ekranda (altyazı bunun üstüne çıkar)
+        public static bool Visible => inst != null && inst.bar != null && inst.bar.activeSelf;
         readonly List<(string owner, string text)> items = new List<(string, string)>();
 
         GameObject bar;

@@ -157,14 +157,17 @@ namespace LoadBearing
             if (content != null)
                 foreach (var t in content.GetComponentsInChildren<TMP_Text>(true))
                 {
-                    // Etiketler biraz daha belirgin (tasarımcı: #444444, Medium, ~%8 büyük)
+                    // Etiketler okunur olsun (jüri): koyu gri, yarı kalın, ~%8 büyük
                     if (t.name.StartsWith("L_"))
                     {
-                        t.color = new Color32(0x44, 0x44, 0x44, 0xFF);
+                        t.color = new Color32(0x26, 0x26, 0x26, 0xFF);
                         t.fontStyle = FontStyles.Normal;
-                        t.fontWeight = FontWeight.Medium;
+                        t.fontWeight = FontWeight.SemiBold;
                         t.fontSize *= 1.08f;
                     }
+                    // Antet, başvuru no ve KARAR kutusu başlığı da koyulaşsın
+                    else if (t.name == "Org" || t.name == "AppNo" || t.text == "KARAR")
+                        t.color = new Color32(0x33, 0x33, 0x33, 0xFF);
                     if (t.text == "ADA / PARSEL" || t.text == "ADA" || t.text == "PARSEL") t.text = "ARSA NO";
                     else if (t.text == "MÜHENDİS KAŞESİ") kaseLabel = t;
                     else if (t.text == "ZEMİN ETÜDÜ") soilLabel = t;
@@ -447,9 +450,9 @@ namespace LoadBearing
             if (day < 2) soil.text = "—";
             else soil.text = c.soil switch
             {
-                SoilType.Solid => "Ekli · Sağlam zemin",
-                SoilType.Soft => "Ekli · Yumuşak zemin",
-                _ => "Ekli değil",
+                SoilType.Solid => "Sağlam zemin",
+                SoilType.Soft => "Yumuşak zemin",
+                _ => "Yok",
             };
         }
 

@@ -133,98 +133,142 @@ namespace LoadBearing
             bgrt.SetParent(root.transform, false);
             Stretch(bgrt);
             blurImg = bg.GetComponent<RawImage>();
-            blurImg.color = new Color(blurTint, blurTint, blurTint, 1f);
+            blurImg.color = Color.white;
 
-            // Masaya bırakılmış küçük bir not kâğıdı (bitiş raporuyla aynı dil): gölge + kâğıt, hafif eğik
-            var shadow = new GameObject("Shadow", typeof(RectTransform), typeof(Image));
-            var srt = (RectTransform)shadow.transform;
-            srt.SetParent(root.transform, false);
-            srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 0.5f);
-            srt.sizeDelta = new Vector2(540f, 560f);
-            srt.anchoredPosition = new Vector2(8f, -10f);
-            srt.localRotation = Quaternion.Euler(0f, 0f, 0.7f);
-            shadow.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.45f);
+            // Üstüne siyah %38 (tasarımcı): panel öne çıksın
+            var dim = new GameObject("Dim", typeof(RectTransform), typeof(Image));
+            var drt = (RectTransform)dim.transform;
+            drt.SetParent(root.transform, false);
+            Stretch(drt);
+            dim.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.38f);
+            dim.GetComponent<Image>().raycastTarget = false;
 
-            var col = new GameObject("Paper", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-            var crt = (RectTransform)col.transform;
-            crt.SetParent(root.transform, false);
-            crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
-            crt.sizeDelta = new Vector2(540f, 560f);
-            crt.localRotation = Quaternion.Euler(0f, 0f, 0.7f);
-            col.GetComponent<Image>().color = Paper;
-            var v = col.GetComponent<VerticalLayoutGroup>();
-            v.padding = new RectOffset(56, 56, 48, 40);
-            v.spacing = 14f;
-            v.childAlignment = TextAnchor.UpperLeft;
-            v.childControlWidth = true; v.childControlHeight = false;
-            v.childForceExpandWidth = true; v.childForceExpandHeight = false;
+            // Panel (tasarımcı UI paketi, 18 Ekim): 720 × 640, düz, gölge görselin içinde, 9 dilim (140 px kenar)
+            var panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image));
+            var panel = (RectTransform)panelGo.transform;
+            panel.SetParent(root.transform, false);
+            panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
+            panel.sizeDelta = new Vector2(720f, 640f);
+            var pimg = panelGo.GetComponent<Image>();
+            var panelSp = Sprite2x("Pause/UI_Pause_Panel", 140f);
+            if (panelSp != null) { pimg.sprite = panelSp; pimg.type = Image.Type.Sliced; pimg.color = Color.white; }
+            else pimg.color = new Color32(0xF3, 0xEF, 0xE7, 0xFF);
 
-            Label(crt, "Karaova Yapı Denetim", 20f, InkSoft, 26f);
-            var title = Label(crt, "Mola", 52f, PaperInk, 64f);
-            title.fontStyle = FontStyles.Bold;
+            var semi = UiFonts.SemiBold;
+            var heavy = UiFonts.Heavy;
+            var regular = UiFonts.Regular;
+
+            // İçerik: panel görselinin görünen kenarından 52 birim içeride (görselde 60 birim gölge payı)
+            const float left = 112f;
+            var tag = Place(Label(panel, "KARAOVA YAPI DENETİM", 20f, new Color32(0x8A, 0x6A, 0x2E, 0xFF), 0f), left, 110f, 496f, 28f);
+            tag.characterSpacing = 14f;
+            if (semi != null) tag.font = semi; else tag.fontStyle = FontStyles.Bold;
+
+            var title = Place(Label(panel, "Mola", 72f, new Color32(0x22, 0x22, 0x22, 0xFF), 0f), left, 138f, 496f, 86f);
+            if (heavy != null) title.font = heavy; else title.fontStyle = FontStyles.Bold;
 
             var line = new GameObject("Line", typeof(RectTransform), typeof(Image));
             var lrt = (RectTransform)line.transform;
-            lrt.SetParent(crt, false);
-            lrt.sizeDelta = new Vector2(0f, 2f);
-            line.GetComponent<Image>().color = new Color(0.13f, 0.12f, 0.11f, 0.55f);
+            lrt.SetParent(panel, false);
+            TopLeft(lrt, left, 240f, 496f, 3f);
+            line.GetComponent<Image>().color = new Color32(0x2B, 0x2B, 0x2B, 0xFF);
 
-            Spacer(crt, 14f);
-            Button(crt, "Masaya dön", true, Resume);
-            Button(crt, "Ana menü", false, ToMainMenu);
-            var quit = Button(crt, "Oyundan çık", false, Quit);
+            // Düğmeler: 496 × 76 (görsel 1000 × 172 px, altta basılma payı), aralarında 14
+            Button(panel, "Masaya dön", true, Resume, left, 273f, new Color32(0xF7, 0xF4, 0xEE, 0xFF), semi);
+            Button(panel, "Ana menü", false, ToMainMenu, left, 363f, new Color32(0x2B, 0x2B, 0x2B, 0xFF), regular);
+            var quit = Button(panel, "Oyundan çık", false, Quit, left, 453f, new Color32(0x8B, 0x3A, 0x30, 0xFF), regular);
 #if UNITY_WEBGL && !UNITY_EDITOR
             quit.SetActive(false); // tarayıcıda çıkış olmaz
 #endif
-            Spacer(crt, 6f);
-
-            // Esc tuşu simgesi + "devam"
-            var hint = new GameObject("Hint", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            var hrt = (RectTransform)hint.transform;
-            hrt.SetParent(crt, false);
-            hrt.sizeDelta = new Vector2(0f, 32f);
-            var hl = hint.GetComponent<HorizontalLayoutGroup>();
-            hl.spacing = 10f; hl.childAlignment = TextAnchor.MiddleLeft;
-            hl.childControlWidth = hl.childControlHeight = true;
-            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
-            KeyIcons.Add(hrt, "ESC", null);
-            var ht = Label(hrt, "ile de devam edebilirsin", 20f, InkSoft, 30f);
-            ht.alignment = TextAlignmentOptions.MidlineLeft;
-
             root.SetActive(false);
         }
 
-        static readonly Color Paper = new Color(0.937f, 0.914f, 0.859f);
-        static readonly Color PaperInk = new Color(0.13f, 0.12f, 0.11f);
-        static readonly Color InkSoft = new Color(0.40f, 0.38f, 0.35f);
+        /// 2x çözünürlüklü tasarım görseli -> sprite (1 birim = 2 piksel), isteğe bağlı 9 dilim kenarı (piksel)
+        static Sprite Sprite2x(string path, float border = 0f)
+        {
+            var tex = Resources.Load<Texture2D>(path);
+            if (tex == null) return null;
+            return Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 200f, 0,
+                                 SpriteMeshType.FullRect, new Vector4(border, border, border, border));
+        }
 
-        GameObject Button(RectTransform parent, string text, bool primary, UnityEngine.Events.UnityAction onClick)
+        static void TopLeft(RectTransform rt, float x, float y, float w, float h)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.sizeDelta = new Vector2(w, h);
+            rt.anchoredPosition = new Vector2(x, -y);
+        }
+
+        static TextMeshProUGUI Place(TextMeshProUGUI t, float x, float y, float w, float h)
+        {
+            TopLeft(t.rectTransform, x, y, w, h);
+            t.alignment = TextAlignmentOptions.MidlineLeft;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            return t;
+        }
+
+        GameObject Button(RectTransform parent, string text, bool primary, UnityEngine.Events.UnityAction onClick,
+                          float x, float y, Color textColor, TMP_FontAsset font)
         {
             var go = new GameObject(text, typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
             rt.SetParent(parent, false);
-            rt.sizeDelta = new Vector2(0f, 64f);
+            TopLeft(rt, x - 2f, y, 500f, 86f);   // görsel 1000 × 172 px: görünen kısım 496 × ~80
             var img = go.GetComponent<Image>();
-            img.color = Color.white; // renk düğmenin durum renklerinden gelir
             var btn = go.GetComponent<Button>();
-            var c = btn.colors;
-            c.normalColor = primary ? PaperInk : new Color(0.13f, 0.12f, 0.11f, 0.06f);
-            c.highlightedColor = primary ? new Color(0.25f, 0.23f, 0.21f) : new Color(0.13f, 0.12f, 0.11f, 0.14f);
-            c.pressedColor = primary ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.13f, 0.12f, 0.11f, 0.22f);
-            c.selectedColor = c.normalColor;
-            c.colorMultiplier = 1f;
-            c.fadeDuration = 0.08f;
-            btn.colors = c;
+            string kind = primary ? "Primary" : "Secondary";
+            var normal = Sprite2x($"Pause/UI_Pause_Btn_{kind}_Normal", 40f);
+            if (normal != null)
+            {
+                img.sprite = normal;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+                btn.transition = Selectable.Transition.SpriteSwap;
+                var ss = btn.spriteState;
+                ss.highlightedSprite = Sprite2x($"Pause/UI_Pause_Btn_{kind}_Hover", 40f);
+                ss.pressedSprite = Sprite2x($"Pause/UI_Pause_Btn_{kind}_Pressed", 40f);
+                ss.selectedSprite = normal;
+                btn.spriteState = ss;
+            }
+            else img.color = primary ? new Color32(0x2B, 0x2B, 0x2B, 0xFF) : new Color32(0xF3, 0xEF, 0xE7, 0xFF);
             btn.onClick.AddListener(onClick);
 
-            var label = Label(rt, text, 28f, primary ? Paper : PaperInk, 0f);
-            label.fontStyle = primary ? FontStyles.Bold : FontStyles.Normal;
+            var label = Label(rt, text, 30f, textColor, 0f);
+            var lr = label.rectTransform;
+            lr.anchorMin = Vector2.zero; lr.anchorMax = Vector2.one;
+            lr.offsetMin = new Vector2(28f, 6f); lr.offsetMax = new Vector2(-20f, 0f); // alttaki basılma payının üstünde
             label.alignment = TextAlignmentOptions.MidlineLeft;
-            var lrt = label.rectTransform;
-            Stretch(lrt);
-            lrt.offsetMin = new Vector2(24f, 0f);
+            if (font != null) label.font = font; else label.fontStyle = primary ? FontStyles.Bold : FontStyles.Normal;
+
+            if (primary)
+            {
+                // Sağda ESC çipi (60 × 34)
+                var chip = new GameObject("EscChip", typeof(RectTransform), typeof(Image));
+                var crt = (RectTransform)chip.transform;
+                crt.SetParent(rt, false);
+                crt.anchorMin = crt.anchorMax = new Vector2(1f, 0.5f);
+                crt.pivot = new Vector2(1f, 0.5f);
+                crt.sizeDelta = new Vector2(60f, 34f);
+                crt.anchoredPosition = new Vector2(-28f, 3f);
+                var ci = chip.GetComponent<Image>();
+                var chipSp = Sprite2x("Pause/UI_Pause_EscChip");
+                if (chipSp != null) ci.sprite = chipSp; else ci.color = new Color(1f, 1f, 1f, 0.15f);
+                ci.raycastTarget = false;
+                var ct = Label(crt, "ESC", 18f, new Color32(0xE9, 0xE2, 0xD5, 0xFF), 0f);
+                ct.rectTransform.anchorMin = Vector2.zero; ct.rectTransform.anchorMax = Vector2.one;
+                ct.rectTransform.offsetMin = ct.rectTransform.offsetMax = Vector2.zero;
+                ct.alignment = TextAlignmentOptions.Center;
+                ct.characterSpacing = 4f;
+                if (semi2 != null) ct.font = semi2; else ct.fontStyle = FontStyles.Bold;
+
+                // Basılınca yazı 3 birim aşağı (tasarımcı)
+                go.AddComponent<PressNudge>().target = lr;
+            }
             return go;
         }
+
+        static TMP_FontAsset semi2 => UiFonts.SemiBold;
 
         TextMeshProUGUI Label(RectTransform parent, string text, float size, Color color, float height)
         {
@@ -289,6 +333,26 @@ namespace LoadBearing
             Graphics.Blit(src, dst);
             RenderTexture.ReleaseTemporary(src);
             return dst;
+        }
+    }
+
+    /// Düğmeye basılı tutulurken yazıyı biraz aşağı kaydırır (basılma hissi)
+    public class PressNudge : MonoBehaviour, UnityEngine.EventSystems.IPointerDownHandler, UnityEngine.EventSystems.IPointerUpHandler, UnityEngine.EventSystems.IPointerExitHandler
+    {
+        public RectTransform target;
+        public float amount = 3f;
+        bool down;
+
+        public void OnPointerDown(UnityEngine.EventSystems.PointerEventData e) => Set(true);
+        public void OnPointerUp(UnityEngine.EventSystems.PointerEventData e) => Set(false);
+        public void OnPointerExit(UnityEngine.EventSystems.PointerEventData e) => Set(false);
+        void OnDisable() => Set(false);
+
+        void Set(bool d)
+        {
+            if (d == down || target == null) return;
+            down = d;
+            target.anchoredPosition += new Vector2(0f, d ? -amount : amount);
         }
     }
 }

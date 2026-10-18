@@ -32,6 +32,7 @@ MonoBehaviour:
   body: 0
   variantMaterial: {fileID: 0}
   characterPrefab: {fileID: 6349494310776745682, guid: 6091e570782d2ad43aae8c3a1e475703, type: 3}
+  sitsWhenKept: 1
   greeting: "Be\u015F \xE7ocuk, bir babaanne. Be\u015F kat laz\u0131m bize."
   approveLine: "Sa\u011F ol karde\u015Fim, sa\u011F ol!"
   rejectLine: "Peki biz nereye s\u0131\u011Faca\u011F\u0131z..."

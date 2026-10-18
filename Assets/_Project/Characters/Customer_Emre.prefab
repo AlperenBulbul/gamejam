@@ -83,7 +83,7 @@ MonoBehaviour:
   rageColor: {r: 0.85, g: 0.15, b: 0.12, a: 1}
   dialogue: {fileID: 0}
   reactTime: 1.3
-  standBack: 0
+  standBack: 0.4
   happySeconds: 0
   animator: {fileID: 4706412832024645146}
   animFade: 0.25
