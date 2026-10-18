@@ -35,7 +35,7 @@ namespace LoadBearing
             if (envelopeClick != null)
             {
                 envelopeClick.Clicked += _ => Take();
-                envelopeClick.prompt = "Rüşvet al"; // sadece imleç zarfın üstündeyken: sol tık simgesi + yazı (HoverPromptUI)
+                envelopeClick.prompt = ""; // imleç yanındaki genel ipucu yok: zarfın üstünde kendi etiketi çıkar (UpdateTag)
             }
             GrowCollider();
         }
@@ -123,6 +123,88 @@ namespace LoadBearing
             }
             t.localPosition = homeLocalPos;
             offering = false;
+        }
+
+        // ------------------------------------------------------------------ zarfın üstündeki "Rüşvet al" etiketi
+
+        RectTransform tagRt, tagCanvasRt;
+        CanvasGroup tagGroup;
+        DeskInteractor interactor;
+
+        /// İmleç zarfın üstündeyken zarfın tam üstünde [sol tık simgesi] Rüşvet al
+        void LateUpdate()
+        {
+            if (interactor == null && Camera.main != null) interactor = Camera.main.GetComponent<DeskInteractor>();
+            var gm = GameManager.Instance;
+            bool show = envelope != null && envelope.activeInHierarchy && !taking && !offering
+                        && interactor != null && envelopeClick != null && interactor.Hovered == envelopeClick
+                        && (gm == null || gm.DeskInputEnabled);
+            if (show && tagRt == null) BuildTag();
+            if (tagGroup == null) return;
+            tagGroup.alpha = Mathf.MoveTowards(tagGroup.alpha, show ? 1f : 0f, Time.unscaledDeltaTime * 10f);
+            if (!show) return;
+
+            // Zarfın üst yüzünün ortası -> ekran; etiket onun biraz üstünde
+            var cam = interactor.Cam;
+            Bounds b = default; bool any = false;
+            foreach (var r in envelope.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled || r.GetComponent<TMPro.TextMeshPro>() != null) continue;
+                if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+            }
+            if (!any || cam == null) return;
+            var sp = cam.WorldToScreenPoint(new Vector3(b.center.x, b.max.y, b.center.z));
+            if (sp.z <= 0f) return;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(tagCanvasRt, sp, null, out var local);
+            tagRt.anchoredPosition = local + new Vector2(0f, 46f);
+        }
+
+        void BuildTag()
+        {
+            var go = new GameObject("BribeTag", typeof(RectTransform), typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler));
+            go.transform.SetParent(transform, false);
+            var cv = go.GetComponent<Canvas>();
+            cv.renderMode = RenderMode.ScreenSpaceOverlay;
+            cv.sortingOrder = 58;
+            var sc = go.GetComponent<UnityEngine.UI.CanvasScaler>();
+            sc.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            sc.referenceResolution = new Vector2(1920, 1080);
+            sc.matchWidthOrHeight = 0.5f;
+            tagCanvasRt = (RectTransform)go.transform;
+
+            var panel = new GameObject("Tag", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.HorizontalLayoutGroup),
+                                       typeof(UnityEngine.UI.ContentSizeFitter), typeof(CanvasGroup));
+            tagRt = (RectTransform)panel.transform;
+            tagRt.SetParent(go.transform, false);
+            tagRt.anchorMin = tagRt.anchorMax = new Vector2(0.5f, 0.5f);
+            tagRt.pivot = new Vector2(0.5f, 0f);
+            var img = panel.GetComponent<UnityEngine.UI.Image>();
+            img.color = new Color(0f, 0f, 0f, 0.78f);
+            img.raycastTarget = false;
+            var hl = panel.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            hl.padding = new RectOffset(14, 18, 8, 8);
+            hl.spacing = 10f;
+            hl.childAlignment = TextAnchor.MiddleCenter;
+            hl.childControlWidth = hl.childControlHeight = true;
+            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
+            var fit = panel.GetComponent<UnityEngine.UI.ContentSizeFitter>();
+            fit.horizontalFit = fit.verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
+            tagGroup = panel.GetComponent<CanvasGroup>();
+            tagGroup.alpha = 0f;
+            tagGroup.blocksRaycasts = false;
+
+            KeyIcons.Add(tagRt, "LMB", null);
+            var t = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            t.transform.SetParent(tagRt, false);
+            var tmp = t.GetComponent<TMPro.TextMeshProUGUI>();
+            tmp.text = "Rüşvet al";
+            tmp.fontSize = 28f;
+            tmp.color = Color.white;
+            tmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+            tmp.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+            tmp.raycastTarget = false;
+            var semi = UiFonts.SemiBold;
+            if (semi != null) tmp.font = semi;
         }
 
         // Zarf ekranda görününce (dosya açılıp yerine oturunca) $ işaretini bir kez kur

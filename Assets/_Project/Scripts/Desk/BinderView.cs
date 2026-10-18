@@ -320,7 +320,7 @@ namespace LoadBearing
             pageRoot.localScale = Vector3.one;
             SetCoverImmediate(false);
             SetOpen(false);
-            if (newTab != null) newTab.SetActive(day >= 2);
+            if (newTab != null) newTab.SetActive(false); // "YENİ" sekmesi klasör açılınca yere düşüyordu: kullanılmıyor (yeni kural uyarısı çerçeve + yönerge)
             SetAlert(newToday.Count > 0);
             ShowPage();
         }
