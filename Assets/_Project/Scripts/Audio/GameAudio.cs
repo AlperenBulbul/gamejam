@@ -256,7 +256,7 @@ namespace LoadBearing
         void OnArrived(CustomerData c)
         {
             Sfx.Play("SFX_Folder_Drop");                                   // dosya masaya düşer
-            if (c != null && c.bribe > 0) Sfx.PlayDelayed("SFX_Envelope_Drop", 0.45f); // zarf dosyanın üstüne
+            // zarf sesi: BribeEnvelope zarfı 2-3 sn sonra uzattığında çalar
         }
 
         void OnLeft(CustomerData c, bool angry) { if (angry) Sfx.Play("SFX_Door_Slam"); }

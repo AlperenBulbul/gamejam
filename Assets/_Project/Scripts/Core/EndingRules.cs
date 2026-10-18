@@ -149,17 +149,16 @@ namespace LoadBearing
         ///   ikisi eşitse (ve en az biri varsa)            -> ikisinden rastgele biri
         ///   hiç yoksa                                      -> felaket videosu yok
         ///
-        /// SONUÇ VİDEOSU: oyunun neden bittiğine göre
-        ///   Rüşvet                         -> Hapis–Rüşvet (İsmail'le hücrede)
-        ///   Aynı gün 2 yanlış mühür        -> felaket Deprem ise Hapis–Deprem, Sel ise Hapis–Sel,
-        ///                                     felaket yoksa: 2 haksız ret -> Kovuldun–Ruhsat vermeyen, diğer -> Kovuldun–"İkincisi dosya olur"
-        ///   Gün sonu: 2 fay onayı          -> Kovuldun–Fay
-        ///   Gün sonu: 2 dere onayı         -> Kovuldun–Dere
-        ///   Gün sonu: 3 haksız ret         -> Kovuldun–Ruhsat vermeyen
-        ///   Gün sonu: 3 kaçan müşteri      -> Kovuldun–Kapıdan çevrilenler
-        ///   Gün sonu: minigame kaybı       -> Kovuldun–Kasa boşaldı
-        ///   Son gün: bina çöktü / yıkıldı  -> Hapis–Deprem / Hapis–Sel (felaket videosu yıkılan binalara göre)
-        ///   Son gün: en fazla 1 küçük hata -> Kimse Ölmedi (0 hata: plaketli) · diğer -> Hâlâ İşte
+        /// SONUÇ VİDEOSU:
+        ///   Rüşvet alındı                         -> Hapis–Rüşvet (İsmail'le hücrede)
+        ///   Felaket var (fay / kat / zemin / dere) -> Hapis–Deprem ya da Hapis–Sel (felaket videosuyla aynı tür)
+        ///   Felaket yok:
+        ///     minigame (monitör) denetimi başarısız -> Kovuldun–Kasa boşaldı
+        ///     haksız retler                         -> Kovuldun–Ruhsat vermeyen
+        ///     bekletilip kaçan müşteriler           -> Kovuldun–Kapıdan çevrilenler
+        ///     aynı gün 2 yanlış mühür (diğer)       -> Kovuldun–"İkincisi dosya olur"
+        ///   Son gün: bina çöktü / yıkıldı          -> Deprem / Sel -> Hapis (yıkılan binalara göre, eşitse rastgele)
+        ///   Son gün: en fazla 1 küçük hata         -> Kimse Ölmedi (0 hata: plaketli) · diğer -> Hâlâ İşte
         public static EndingResult Resolve(GameManager gm)
         {
             var run = gm != null ? gm.Run : null;
@@ -170,23 +169,16 @@ namespace LoadBearing
             {
                 int disaster = PickDisaster(gm, run, out var wrongOne);
                 EndingResult r;
-                switch (run.fireReason)
+                if (run.fireReason == FireReason.Bribe) r = Make(EndingId.Jail_Bribe);   // rüşvet: hapis (İsmail'le)
+                else if (disaster == 1) r = Make(EndingId.Jail_Quake);                    // fay / fazla kat / zemin: deprem -> hapis
+                else if (disaster == 2) r = Make(EndingId.Jail_Flood);                    // dere yatağı: sel -> hapis
+                else r = Make(run.fireReason switch                                       // felaket yok: kovulma
                 {
-                    case FireReason.Bribe:
-                        r = Make(EndingId.Jail_Bribe);
-                        break;
-                    case FireReason.DailyMistakes:
-                    case FireReason.WrongfulRejects when run.pendingFired:
-                    case FireReason.Flood when run.pendingFired:
-                        // Aynı gün 2 yanlış mühür: oyun anında biter
-                        if (disaster == 1) r = Make(EndingId.Jail_Quake);
-                        else if (disaster == 2) r = Make(EndingId.Jail_Flood);
-                        else r = Make(run.fireReason == FireReason.WrongfulRejects ? EndingId.Fired_WrongfulRejects : EndingId.Fired_DailyMistakes);
-                        break;
-                    default:
-                        r = Make(FiredId(run.fireReason));
-                        break;
-                }
+                    FireReason.MinigameFailed => EndingId.Fired_Minigame,               // monitör denetimi başarısız
+                    FireReason.WrongfulRejects => EndingId.Fired_WrongfulRejects,       // uygun başvurulara ret
+                    FireReason.Penalties => EndingId.Fired_Penalties,                   // bekletilip kaçan müşteriler
+                    _ => EndingId.Fired_DailyMistakes,                                  // aynı gün 2 yanlış mühür
+                });
                 r.prelude = disaster == 1 ? PreludeQuake : disaster == 2 ? PreludeFlood : null;
                 r.featured = wrongOne;
                 return r;

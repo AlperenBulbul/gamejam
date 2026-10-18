@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
   id: C7
   day: 2
-  displayName: Cenk Zirve
+  displayName: "\u0130smail Zirve"
   role: Zirve Holding sahibi
   ada: 1
   parsel: 1
@@ -31,7 +31,10 @@ MonoBehaviour:
   voicePitch: 0.8
   body: 0
   variantMaterial: {fileID: 0}
-  greeting: "Cenk Zirve. Dosyan\u0131n i\xE7ine ufak bir... te\u015Fekk\xFCr koydum."
+  characterPrefab: {fileID: 9004163158713391270, guid: acd598903d91bf64195e0bc578636981, type: 3}
+  sitsWhenKept: 0
+  greeting: "\u0130smail Zirve. Dosyam burada, bir bak\u0131verin."
   approveLine: "Ak\u0131ll\u0131 adams\u0131n. Seni unutmam."
   rejectLine: "Bu \u015Fehirde kimin s\xF6z\xFC ge\xE7er, g\xF6receksin."
+  bribeLine: "Bu da... ufak bir te\u015Fekk\xFCr. Aram\u0131zda kals\u0131n."
   expectedValid: 0

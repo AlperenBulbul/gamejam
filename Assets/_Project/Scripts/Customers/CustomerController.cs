@@ -358,6 +358,9 @@ namespace LoadBearing
             if (glass != null) glass.localPosition = glassHome;
         }
 
+        /// Dışarıdan replik (ör. rüşvet zarfını uzatırken)
+        public void SayLine(string line) => Say(line);
+
         void Say(string line)
         {
             if (string.IsNullOrEmpty(line)) return;

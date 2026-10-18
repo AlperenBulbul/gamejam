@@ -252,7 +252,7 @@ namespace LoadBearing
                     return new[] { ("{LMB} dosya", "Mühür bas"), ("{RMB}", "Mührü bırak") };
                 default: // Desk
                     return state == GameState.DayIntro
-                        ? new[] { ("{MOUSE}", "Etrafa bak"), ("{LMB}", "Gazeteyi oku"), ("{ESC}", "Duraklat") }
+                        ? new[] { ("{MOUSE}", "Etrafa bak"), ("{LMB}", NewspaperView.RulesFirst ? "Kural defterini aç" : "Gazeteyi oku"), ("{ESC}", "Duraklat") }
                         : new[] { ("{MOUSE}", "Etrafa bak"), ("{LMB}", "Seç / incele"), ("{ESC}", "Duraklat") };
             }
         }

@@ -36,6 +36,9 @@ namespace LoadBearing
             Fullscreen = PlayerPrefs.GetInt(KFull, 1) == 1;
             Brightness = PlayerPrefs.GetInt(KBright, 50);
             AudioListener.volume = Master / 100f;
+            // VSync: ekran yırtılmasın (kare hızı monitörün yenileme hızına kilitlenir)
+            QualitySettings.vSyncCount = 1;
+            Application.targetFrameRate = -1;
 #if !UNITY_EDITOR
             Screen.fullScreen = Fullscreen;
 #endif

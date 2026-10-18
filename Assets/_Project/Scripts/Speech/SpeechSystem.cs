@@ -19,6 +19,8 @@ namespace LoadBearing
         public RectTransform background;
         public float maxWidth = 1100f;
         public Vector2 padding = new Vector2(44f, 22f);
+        [Tooltip("Altyazının arkasındaki yarı şeffaf koyu kutu (oyun görünür kalır, yazı okunur)")]
+        public Color backdropColor = new Color(0.04f, 0.035f, 0.03f, 0.58f);
         public float fadeTime = 0.25f;
 
         [Header("Ses")]
@@ -37,21 +39,63 @@ namespace LoadBearing
             if (syllables == null || syllables.Length == 0) syllables = GibberishSynth.Make(6, false);
             if (grumbles == null || grumbles.Length == 0) grumbles = GibberishSynth.Make(2, true);
             if (group != null) group.alpha = 0f;
+            UseBackdrop();
             UseShadow();
         }
 
-        /// Kutu yerine yazının altında gölge (oyun görüntüsünü kapatmasın, yine okunsun)
+        /// Yazının arkasında yumuşak kenarlı, yarı şeffaf koyu kutu: arkadaki sahne seçilir, yazı her zeminde okunur
+        void UseBackdrop()
+        {
+            if (padding.x < 56f) padding = new Vector2(56f, 26f);
+            if (background == null || text == null) return;
+            var img = background.GetComponent<Image>();
+            if (img == null) img = background.gameObject.AddComponent<Image>();
+            img.enabled = true;
+            img.sprite = SoftBox();
+            img.type = Image.Type.Sliced;
+            img.color = backdropColor;
+            img.raycastTarget = false;
+            background.SetSiblingIndex(0); // yazının arkasında
+            // Kutu ile yazı aynı alt orta noktaya bağlı: yazıyı dolgunun yarısı kadar yukarı al, ortalansın
+            var trt = text.rectTransform;
+            trt.anchoredPosition = new Vector2(trt.anchoredPosition.x, background.anchoredPosition.y + padding.y * 0.5f);
+        }
+
+        static Sprite softBox;
+
+        /// 64 px yuvarlak köşeli kutu, kenarları 10 px'te yumuşakça kaybolur (9 dilimli)
+        static Sprite SoftBox()
+        {
+            if (softBox != null) return softBox;
+            const int n = 64; const float radius = 22f, feather = 10f;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "SpeechBackdrop" };
+            var px = new Color32[n * n];
+            float half = n * 0.5f;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    // yuvarlak köşeli dikdörtgene uzaklık (içeride negatif)
+                    float qx = Mathf.Abs(x + 0.5f - half) - (half - radius);
+                    float qy = Mathf.Abs(y + 0.5f - half) - (half - radius);
+                    float outside = new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude + Mathf.Min(Mathf.Max(qx, qy), 0f) - radius;
+                    float a = Mathf.Clamp01(-outside / feather);
+                    a = a * a * (3f - 2f * a);
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            float b = radius + 2f;
+            softBox = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(b, b, b, b));
+            return softBox;
+        }
+
+        /// Yazının altında hafif gölge (kutuyla birlikte her zeminde okunsun)
         void UseShadow()
         {
-            if (background != null)
-            {
-                var img = background.GetComponent<Image>();
-                if (img != null) img.enabled = false;
-            }
             if (text == null) return;
             var m = text.fontMaterial; // örnek materyal: diğer yazıları etkilemez
             m.EnableKeyword("UNDERLAY_ON");
-            m.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.9f));
+            m.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.75f));
             m.SetFloat("_UnderlayOffsetX", 0.45f);
             m.SetFloat("_UnderlayOffsetY", -0.55f);
             m.SetFloat("_UnderlayDilate", 0.35f);

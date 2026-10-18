@@ -11,6 +11,7 @@ namespace LoadBearing
     /// - Tıklanınca kamera gazetenin tepesine gelir (okunur), ekranın altında "GÜNE BAŞLA" düğmesi çıkar
     /// - Düğme (ya da Enter): kamera masaya döner, mesai başlar, müşteriler gelir
     /// - Mesai sırasında da açılıp okunabilir (düğme yok)
+    /// - 2. gün ve sonrası: yeni kural varsa önce kural defteri (o parlar, "Kural defterine git"); defter açılınca gazete sırası gelir
     public class NewspaperView : MonoBehaviour
     {
         [Header("Yakın bakış")]
@@ -33,10 +34,18 @@ namespace LoadBearing
         bool glowing;
         public GameObject StartButton => button;
 
+        /// Gün başı, yeni kural henüz okunmadı: önce kural defteri, gazete bekler
+        public static bool RulesFirst { get; private set; }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => RulesFirst = false;
+        BinderView binder;
+        FocusState[] clickableNormally;
+
         void Awake()
         {
             interactable = GetComponent<Interactable>();
             mpb = new MaterialPropertyBlock();
+            if (interactable != null) clickableNormally = interactable.clickableIn;
             if (interactable != null)
             {
                 // Eski kurulum: gazeteye tıklayınca doğrudan güne başlıyordu. Artık düğme başlatır.
@@ -196,12 +205,25 @@ namespace LoadBearing
             var fc = FocusController.Instance;
             var gm = GameManager.Instance;
             bool atPaper = lastTarget == FocusState.Newspaper || (fc != null && fc.State == FocusState.Newspaper);
-            bool want = gm != null && gm.State == GameState.DayIntro && !atPaper;
+            if (binder == null) binder = FindAnyObjectByType<BinderView>();
+
+            // 2. gün ve sonrası: yeni kural sayfası okunmadıysa önce kural defteri (defter kendi çerçevesiyle parlar)
+            bool dayIntro = gm != null && gm.State == GameState.DayIntro;
+            RulesFirst = dayIntro && gm.Run != null && gm.Run.day >= 2 && binder != null && binder.IsAlerting && !atPaper;
+            if (interactable != null && clickableNormally != null)
+            {
+                var want0 = RulesFirst ? System.Array.Empty<FocusState>() : clickableNormally; // defter okunana kadar gazete açılmaz
+                if (interactable.clickableIn != want0) interactable.clickableIn = want0;
+            }
+
+            bool want = dayIntro && !atPaper && !RulesFirst;
             if (want != glowing || (glowFrame != null && glowFrame.activeSelf != want)) SetGlow(want);
 
-            bool prompt = want && fc != null && !fc.IsTransitioning && fc.State == FocusState.Desk
+            bool prompt = (want || RulesFirst) && fc != null && !fc.IsTransitioning && fc.State == FocusState.Desk
                           && !GuidedTour.Running && !EndScreenUI.Blocking;
-            PromptBar.Set("newspaper", prompt ? "<b>Gazeteye</b> git" : null);
+            PromptBar.Set("newspaper", !prompt ? null
+                : RulesFirst ? "Yeni kural var: <b>Kural defterine</b> git"
+                : "<b>Gazeteye</b> git");
         }
 
         // ------------------------------------------------------------------ "GÜNE BAŞLA"

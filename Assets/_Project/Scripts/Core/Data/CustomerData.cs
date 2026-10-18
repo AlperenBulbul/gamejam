@@ -41,6 +41,8 @@ namespace LoadBearing
         [TextArea] public string greeting;
         [TextArea] public string approveLine;
         [TextArea] public string rejectLine;
+        [Tooltip("Rüşvetçi: dosyayı verdikten 2-3 sn sonra zarfı uzatırken söylediği söz")]
+        [TextArea] public string bribeLine;
 
         [Header("Sadece test")]
         [Tooltip("Validator sonucu bununla karşılaştırılır")]

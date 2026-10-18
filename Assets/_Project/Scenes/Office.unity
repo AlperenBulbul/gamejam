@@ -6063,6 +6063,8 @@ MonoBehaviour:
   envelope: {fileID: 1578237383}
   envelopeClick: {fileID: 1578237385}
   takeTime: 0.35
+  offerDelay: 2.5
+  offerDelayMax: 3.5
 --- !u!1 &257275883
 GameObject:
   m_ObjectHideFlags: 0
@@ -37654,6 +37656,7 @@ MonoBehaviour:
   background: {fileID: 1141970383}
   maxWidth: 1100
   padding: {x: 44, y: 22}
+  backdropColor: {r: 0.04, g: 0.035, b: 0.03, a: 0.58}
   fadeTime: 0.25
   voice: {fileID: 704349515}
   syllables: []

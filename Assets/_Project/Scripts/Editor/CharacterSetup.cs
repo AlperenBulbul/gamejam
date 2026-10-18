@@ -206,6 +206,52 @@ namespace LoadBearing.EditorTools
 
         // ------------------------------------------------------------------ rüşvetçi (İsmail, C7)
 
+        const string C7Path = "Assets/_Project/Data/Customers/C7.asset";
+
+        /// "Load Bearing/21 - Rüşvetçi İsmail'i kur": sadece İsmail prefabını kurar, C7'ye bağlar, adını/repliklerini günceller.
+        /// Proje açılınca prefab yoksa kendiliğinden bir kez çalışır (sahneye dokunmaz).
+        [MenuItem("Load Bearing/21 - Rüşvetçi İsmail'i kur", priority = 21)]
+        public static void SetupIsmailOnly()
+        {
+            var log = new System.Text.StringBuilder();
+            var prefab = BuildIsmail(log);
+            var c7 = AssetDatabase.LoadAssetAtPath<CustomerData>(C7Path);
+            if (c7 != null)
+            {
+                if (prefab != null) c7.characterPrefab = prefab;
+                ApplyIsmailData(c7);
+                EditorUtility.SetDirty(c7);
+            }
+            else log.Append($"\n - UYARI: {C7Path} yok.");
+            AssetDatabase.SaveAssets();
+            Debug.Log("<color=lime>[Load Bearing]</color> Rüşvetçi İsmail kuruldu (C7)." + log);
+        }
+
+        /// C7 artık İsmail: önce dosyayı verir, 2-3 sn sonra zarfı uzatır (BribeEnvelope)
+        static void ApplyIsmailData(CustomerData c)
+        {
+            if (c.displayName == "Cenk Zirve" || string.IsNullOrEmpty(c.displayName)) c.displayName = "İsmail Zirve";
+            if (string.IsNullOrEmpty(c.greeting) || c.greeting.StartsWith("Cenk")) c.greeting = "İsmail Zirve. Dosyam burada, bir bakıverin.";
+            if (string.IsNullOrEmpty(c.bribeLine)) c.bribeLine = "Bu da... ufak bir teşekkür. Aramızda kalsın.";
+            c.body = BodyType.Male;
+        }
+
+        [InitializeOnLoadMethod]
+        static void AutoSetupIsmail()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                if (FindAsset(IsmailDir, "SK_Customer_C12_Ismail") == null) return;
+                var c7 = AssetDatabase.LoadAssetAtPath<CustomerData>(C7Path);
+                bool needPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{OutDir}/Customer_Ismail.prefab") == null
+                                  || (c7 != null && c7.characterPrefab == null);
+                bool needData = c7 != null && (c7.displayName == "Cenk Zirve" || string.IsNullOrEmpty(c7.bribeLine));
+                if (needPrefab) SetupIsmailOnly();
+                else if (needData) { ApplyIsmailData(c7); EditorUtility.SetDirty(c7); AssetDatabase.SaveAssets(); }
+            };
+        }
+
         /// Rüşvetçi: konuşma + bağırma klipleri.
         ///  Bekleme: sakin -> duruş; sabırsız -> el kol hareketi (konuşma, yavaş); sinirli / patlama -> bağırma
         ///  Kabul -> memnun el kol hareketi (konuşma, biraz hızlı); Ret -> bağırma (3,5 sn), sonra çıkış

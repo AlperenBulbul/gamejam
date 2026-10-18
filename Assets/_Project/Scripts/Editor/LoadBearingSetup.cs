@@ -147,8 +147,8 @@ namespace LoadBearing.EditorTools
                 "Kızım, tek katlı küçük bir ev. Mühendis bey her şeyi hazırladı.", "Çok teşekkür ederim kızım.", "Mühendis bey öyle dememişti ama...", false);
             C("C6", 2, "Okan Yalın", "Yalın Yapı A.Ş. temsilcisi", 21, 6, 420, 5, "Konut", "İMO-3390", SoilType.Solid, false, false, 0, 80, 1.05f, BodyType.Male,
                 "Yalın Yapı. Zemin etüdü ve kaşe ekte. Her şey tam.", "Güzel. İşimizi biliriz.", "Bunu itiraz yoluyla çözeriz.", true);
-            C("C7", 2, "Cenk Zirve", "Zirve Holding sahibi", 1, 1, 450, 6, "Rezidans", "İMO-5876", SoilType.Solid, false, true, 1500, 100, 0.8f, BodyType.Male,
-                "Cenk Zirve. Dosyanın içine ufak bir... teşekkür koydum.", "Akıllı adamsın. Seni unutmam.", "Bu şehirde kimin sözü geçer, göreceksin.", false);
+            C("C7", 2, "İsmail Zirve", "Zirve Holding sahibi", 1, 1, 450, 6, "Rezidans", "İMO-5876", SoilType.Solid, false, true, 1500, 100, 0.8f, BodyType.Male,
+                "İsmail Zirve. Dosyam burada, bir bakıverin.", "Akıllı adamsın. Seni unutmam.", "Bu şehirde kimin sözü geçer, göreceksin.", false);
             return list;
         }
 
