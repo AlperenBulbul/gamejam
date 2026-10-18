@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -8,7 +10,8 @@ namespace LoadBearing
     ///  - Masa görünümü (Desk / HoldingStamp): fare kilitli ve gizli, ekran ortasında nokta (crosshair),
     ///    fare hareketi kamerayı döndürür (DeskLook), tıklama noktanın gösterdiği objeye gider.
     ///  - Yakın bakış (harita, klasör, dosya, monitör): fare serbest ama Windows imleci gizli; aynı nokta fareyi izler.
-    ///  - Menüler, gün sonu ekranları: normal imleç.
+    ///  - Menüler, gün sonu ekranları: Windows imleci yine gizli; oyunun noktası en üst katmanda fareyi izler.
+    ///  - Sinematik oynarken (açılış, son videoları): hiçbir imleç görünmez.
     /// Fare bir sebeple serbest kaldıysa (Editor'da Esc) ilk tıklama sadece tekrar kilitler.
     [DefaultExecutionOrder(-50)] // DeskInteractor / StampController'dan önce
     public class CursorController : MonoBehaviour
@@ -36,6 +39,13 @@ namespace LoadBearing
         DeskInteractor interactor;
         bool wantedLast;
 
+        // Menü imleci: crosshair'in kopyası, her ekranın (menü 400, mola 500, sinematik 700) üstünde
+        RectTransform menuCursor;
+        Image menuDot, menuOutline;
+        readonly List<RaycastResult> uiHits = new List<RaycastResult>();
+        PointerEventData uiPointer;
+        EventSystem uiEs;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() { IsAiming = false; LockClickFrame = -1; }
 
@@ -55,6 +65,7 @@ namespace LoadBearing
         void Awake()
         {
             interactor = GetComponent<DeskInteractor>();
+            Cursor.visible = false; // oyun açılır açılmaz Windows imleci görünmesin
             if (outline == null && crosshair != null)
             {
                 var o = crosshair.Find("Outline");
@@ -62,7 +73,7 @@ namespace LoadBearing
             }
         }
 
-        enum Mode { Free, Aim, Inspect }
+        enum Mode { Free, Aim, Inspect, Hidden }
 
         void Update()
         {
@@ -89,19 +100,23 @@ namespace LoadBearing
                     Cursor.visible = false;
                     break;
 
-                default: // menü, gün sonu ekranları: normal imleç
+                default: // menü, gün sonu ekranları, sinematik: imleç serbest, Windows imleci gizli
                     if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
+                    Cursor.visible = false;
                     break;
             }
 
             wantedLast = mode == Mode.Aim;
             IsAiming = mode == Mode.Aim && Cursor.lockState == CursorLockMode.Locked;
             UpdateCrosshair(mode);
+            UpdateMenuCursor(mode);
         }
+
+        static bool CinematicPlaying => IntroCinematic.Playing || EndScreenUI.VideoPlaying;
 
         static Mode WantedMode()
         {
+            if (CinematicPlaying) return Mode.Hidden;
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
             if (gm == null || fc == null || !gm.DeskInputEnabled) return Mode.Free;
@@ -112,7 +127,7 @@ namespace LoadBearing
         void UpdateCrosshair(Mode mode)
         {
             if (crosshair == null) return;
-            bool show = mode != Mode.Free;
+            bool show = mode == Mode.Aim || mode == Mode.Inspect;
             if (crosshair.gameObject.activeSelf != show) crosshair.gameObject.SetActive(show);
             if (!show) return;
 
@@ -135,6 +150,83 @@ namespace LoadBearing
             float s = Mathf.Lerp(crosshair.localScale.x, target, k);
             crosshair.localScale = new Vector3(s, s, 1f);
             if (dot != null) dot.color = Color.Lerp(dot.color, hover ? hoverColor : idleColor, k);
+        }
+
+        /// Menü / gün sonu ekranlarında oyunun noktası, en üst katmanda farenin olduğu yerde
+        void UpdateMenuCursor(Mode mode)
+        {
+            bool show = mode == Mode.Free;
+            if (show) EnsureMenuCursor();
+            if (menuCursor == null) return;
+            if (menuCursor.gameObject.activeSelf != show) menuCursor.gameObject.SetActive(show);
+            if (!show) return;
+
+            var parent = menuCursor.parent as RectTransform;
+            var pos = PointerScreen();
+            if (parent != null)
+            {
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, pos, null, out var local);
+                menuCursor.anchoredPosition = local;
+            }
+
+            bool hover = OverClickableUI(pos);
+            float k = 1f - Mathf.Exp(-20f * Time.unscaledDeltaTime);
+            SetSize(menuDot, inspectDotSize, k);
+            SetSize(menuOutline, inspectOutlineSize, k);
+            float target = hover ? hoverScale : 1f;
+            float s = Mathf.Lerp(menuCursor.localScale.x, target, k);
+            menuCursor.localScale = new Vector3(s, s, 1f);
+            if (menuDot != null) menuDot.color = Color.Lerp(menuDot.color, hover ? hoverColor : idleColor, k);
+        }
+
+        void EnsureMenuCursor()
+        {
+            if (menuCursor != null || crosshair == null) return;
+            var go = new GameObject("MenuCursor_Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            var cv = go.GetComponent<Canvas>();
+            cv.renderMode = RenderMode.ScreenSpaceOverlay;
+            cv.sortingOrder = 32000; // her şeyin üstünde; GraphicRaycaster yok, tıklamayı engellemez
+            var scaler = go.GetComponent<CanvasScaler>();
+            var src = crosshair.GetComponentInParent<Canvas>();
+            var srcScaler = src != null ? src.rootCanvas.GetComponent<CanvasScaler>() : null;
+            if (srcScaler != null)
+            {
+                scaler.uiScaleMode = srcScaler.uiScaleMode;
+                scaler.referenceResolution = srcScaler.referenceResolution;
+                scaler.screenMatchMode = srcScaler.screenMatchMode;
+                scaler.matchWidthOrHeight = srcScaler.matchWidthOrHeight;
+                scaler.scaleFactor = srcScaler.scaleFactor;
+            }
+
+            var clone = Instantiate(crosshair.gameObject, go.transform, false);
+            clone.name = "MenuCursor";
+            clone.SetActive(false);
+            menuCursor = (RectTransform)clone.transform;
+            menuCursor.anchorMin = menuCursor.anchorMax = new Vector2(0.5f, 0.5f);
+            menuCursor.localScale = Vector3.one;
+            foreach (var g in clone.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
+            var d = menuCursor.Find("Dot");
+            var o = menuCursor.Find("Outline");
+            menuDot = d != null ? d.GetComponent<Image>() : null;
+            menuOutline = o != null ? o.GetComponent<Image>() : null;
+            if (menuDot != null) menuDot.color = idleColor;
+        }
+
+        /// Fare tıklanabilir bir arayüz öğesinin (düğme, kaydırıcı, menü satırı) üstünde mi
+        bool OverClickableUI(Vector2 pos)
+        {
+            var es = EventSystem.current;
+            if (es == null) return false;
+            if (uiPointer == null || uiEs != es) { uiPointer = new PointerEventData(es); uiEs = es; }
+            uiPointer.position = pos;
+            uiHits.Clear();
+            es.RaycastAll(uiPointer, uiHits);
+            if (uiHits.Count == 0) return false;
+            var go = uiHits[0].gameObject;
+            if (go == null) return false;
+            if (ExecuteEvents.GetEventHandler<IPointerClickHandler>(go) != null) return true;
+            if (ExecuteEvents.GetEventHandler<IPointerDownHandler>(go) != null) return true;
+            return false;
         }
 
         static void SetSize(Image img, float size, float k)

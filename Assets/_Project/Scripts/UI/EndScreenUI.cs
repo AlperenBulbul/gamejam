@@ -16,8 +16,10 @@ namespace LoadBearing
 
         /// Gün kartı açık: masa kontrolleri kapalı
         public static bool Blocking { get; private set; }
+        /// Son sinematiği oynuyor (imleç gizlenir)
+        public static bool VideoPlaying { get; private set; }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => Blocking = false;
+        static void ResetStatics() { Blocking = false; VideoPlaying = false; }
 
         readonly List<CustomerData> angryLeft = new List<CustomerData>();
         int faultsFixed;
@@ -60,7 +62,7 @@ namespace LoadBearing
                 case GameState.MainMenu:
                     angryLeft.Clear(); faultsFixed = 0; faultsFixedByDay.Clear();
                     if (endFade != null) { Destroy(endFade); endFade = null; }
-                    StopAllCoroutines();
+                    StopAllCoroutines(); VideoPlaying = false;
                     Blocking = false;
                     dayCard.SetActive(false);
                     finish.SetActive(false);
@@ -70,7 +72,7 @@ namespace LoadBearing
                     if (gm != null && gm.Run.day >= 2) StartCoroutine(DayCard(gm.Run.day));
                     break;
                 case GameState.Ending:
-                    StopAllCoroutines();
+                    StopAllCoroutines(); VideoPlaying = false;
                     Blocking = false;
                     dayCard.SetActive(false);
                     StartCoroutine(ShowFinish());
@@ -413,6 +415,7 @@ namespace LoadBearing
         IEnumerator PlayClip(UnityEngine.Video.VideoClip clip, bool holdAtEnd)
         {
             if (clip == null) yield break;
+            VideoPlaying = true;
 
             var back = new GameObject("VideoBack", typeof(RectTransform), typeof(Image));
             back.transform.SetParent(canvas.transform, false);
@@ -499,6 +502,7 @@ namespace LoadBearing
             Destroy(back);
             rtex.Release();
             Destroy(rtex);
+            VideoPlaying = false;
             yield return null; // tıklama rapordaki düğmelere geçmesin
         }
 
