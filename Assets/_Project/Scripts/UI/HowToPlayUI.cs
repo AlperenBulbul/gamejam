@@ -297,6 +297,7 @@ namespace LoadBearing
         {
             if (IsLast) return;
             index++;
+            Sfx.PlayUI("SFX_UI_Page");
             Show();
         }
 
@@ -304,13 +305,15 @@ namespace LoadBearing
         {
             if (index <= 0) return;
             index--;
+            Sfx.PlayUI("SFX_UI_Page");
             Show();
         }
 
         void Done()
         {
             Close();
-            GameManager.Instance.StartGame();
+            // Önce açılış sinematiği, bitince (siyah ekranın arkasında) oyun başlar
+            IntroCinematic.Play(() => GameManager.Instance.StartGame());
         }
 
         void BackToMenu()

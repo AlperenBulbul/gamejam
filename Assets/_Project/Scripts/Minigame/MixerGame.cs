@@ -241,18 +241,22 @@ namespace LoadBearing
             }
         }
 
+        float nextSpin;
+
         void Spawn(Spec s)
         {
             var tex = MgUI.Tex(s.tex);
             float w = tex != null ? tex.width : 128f, h = tex != null ? tex.height : 104f;
             var img = MgUI.Raw(itemLayer, tex, -140f, BeltY - h, w, h, new Vector2(0.5f, 0.5f));
             items.Add(new Item { spec = s, img = img, rt = img.rectTransform, x = -140f, w = w, h = h, state = ItemState.Belt });
+            Sfx.Play(s.liquid ? "SFX_Item_Land_Jug" : "SFX_Item_Land_Sack"); // banda düşer
         }
 
         void Toss(Item it)
         {
             it.state = ItemState.Tossed;
             it.t = 0f;
+            Sfx.Play("SFX_Item_Toss");
             it.pos = new Vector2(it.x, BeltY - it.h);
             it.vx = Random.Range(-60f, 60f);
             it.vy = -620f;
@@ -277,6 +281,8 @@ namespace LoadBearing
             it.t = 0f;
             it.pos = new Vector2(it.x, BeltY - it.h);
             PlayFx(it.spec.liquid ? "SPR_FX_Mixer_Splash" : "SPR_FX_Mixer_Dust", 3, HopperX + 116f, HopperY + 62f);
+            Sfx.Play(it.spec.liquid ? "SFX_Mixer_Splash" : "SFX_Item_Drop"); // miksere düşer
+            if (Time.time >= nextSpin) { Sfx.PlayDelayed("SFX_Mixer_Spin", 0.25f); nextSpin = Time.time + 1.6f; } // mikser döner
             var tr = new System.Globalization.CultureInfo("tr-TR");
             if (it.spec.trap)
             {

@@ -18,6 +18,10 @@ namespace LoadBearing
         public static MinigameDirector Instance { get; private set; }
         /// Minigame monitör ekranında (kanal düğmeleri kapalı)
         public static bool OnScreen => Instance != null && Instance.screenOn;
+        /// Mikser oyunu oynanıyor (bant döngüsü sesi)
+        public bool MixerRunning => playing && game is MixerGame;
+        /// Monitörün turuncu uyarı çerçevesi yanıp sönüyor
+        public bool MonitorAlertOn => monitorGlow != null && monitorGlow.IsOn;
         /// Tuş listesi için: minigame ekrandayken gösterilecek tuşlar (yoksa null)
         public static (string key, string action)[] Hints => OnScreen && Instance.game != null && Instance.playing ? Instance.game.Hints : null;
 
@@ -132,6 +136,7 @@ namespace LoadBearing
             gameRoot.SetSiblingIndex(0);
             game.Init(gameRoot, site, siteIndex);
             screenOn = true;
+            Sfx.Play("SFX_Monitor_Glitch"); // minigame'e geçiş
             yield return Boot();
 
             // ---- Tanıtım: ekran bulanıklaşır, ne yapılacağı tek bakışta; tıkla, başla

@@ -103,7 +103,13 @@ namespace LoadBearing
             switch (phase)
             {
                 case Phase.Swing:
-                    swingPhase += Speed * dt;
+                    {
+                        // Kafes uca gelince ara ara gıcırtı
+                        float before = Mathf.Cos(swingPhase);
+                        swingPhase += Speed * dt;
+                        if (Mathf.Sign(before) != Mathf.Sign(Mathf.Cos(swingPhase)) && Time.time >= nextCreak && Random.value < 0.45f)
+                        { Sfx.Play("SFX_Column_Swing"); nextCreak = Time.time + 1.2f; }
+                    }
                     angle[col] = Amplitude * Mathf.Sin(swingPhase);
                     cols[col].rectTransform.localEulerAngles = new Vector3(0f, 0f, angle[col]);
                     UpdateBubble(angle[col]);
@@ -116,8 +122,8 @@ namespace LoadBearing
                     {
                         col++;
                         if (col < 3) StartColumn();
-                        else if (floor + 1 < Floors) { phase = Phase.NextFloor; wait = 1.2f; floorLabel.text = $"KAT {floor + 2}"; }
-                        else { phase = Phase.Quake; wait = 2.6f; floorLabel.text = "DEPREM TESTİ"; floorLabel.color = new Color(1f, 0.8f, 0.3f); }
+                        else if (floor + 1 < Floors) { phase = Phase.NextFloor; wait = 1.2f; floorLabel.text = $"KAT {floor + 2}"; Sfx.Play("SFX_Event_Success"); }
+                        else { phase = Phase.Quake; wait = 2.6f; floorLabel.text = "DEPREM TESTİ"; floorLabel.color = new Color(1f, 0.8f, 0.3f); Sfx.Play("SFX_Quake_Test"); }
                     }
                     break;
 
@@ -175,9 +181,13 @@ namespace LoadBearing
             bubble.color = Mathf.Abs(a) <= Tolerance ? new Color(0.45f, 1f, 0.45f) : new Color(1f, 0.85f, 0.25f);
         }
 
+        float nextCreak;
+
         void Lock()
         {
             bool ok = Mathf.Abs(angle[col]) <= Tolerance;
+            Sfx.Play(ok ? "SFX_Column_Lock" : "SFX_Column_Miss"); // kelepçe tıkı (eğride yamuk tık)
+            Sfx.PlayDelayed("SFX_Concrete_Pour", 0.08f);             // hemen ardından beton
             if (ok) angle[col] = 0f;
             bad[col] = !ok;
             var c = cols[col];

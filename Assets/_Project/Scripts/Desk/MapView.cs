@@ -145,6 +145,7 @@ namespace LoadBearing
         public void ToggleOverlay()
         {
             if (overlay == null) return;
+            if (!overlayOn) Sfx.Play("SFX_Acetate_Slide"); // şeffaf katman haritanın üstüne
             SetOverlay(!overlayOn, true);
         }
 

@@ -42,10 +42,11 @@ namespace LoadBearing
         GameObject[] itemRow = new GameObject[3];
         int sel;
 
-        // Ayarlar satırları: 0 Genel ses, 1 Müzik, 2 Efektler, 3 Fare hızı, 4 Ekran, 5 Geri
-        TextMeshProUGUI[] setLabel = new TextMeshProUGUI[5], setValue = new TextMeshProUGUI[4];
-        RectTransform[] setTrack = new RectTransform[4], setFill = new RectTransform[4], setHandle = new RectTransform[4];
-        Image[] setFillImg = new Image[4], setHandleImg = new Image[4];
+        // Ayarlar satırları: 0 Genel ses, 1 Müzik, 2 Efektler, 3 Parlaklık, 4 Fare hızı (kaydırıcı), 5 Ekran, 6 Geri
+        const int Sliders = 5, RowScreen = 5, RowBack = 6;
+        TextMeshProUGUI[] setLabel = new TextMeshProUGUI[6], setValue = new TextMeshProUGUI[Sliders];
+        RectTransform[] setTrack = new RectTransform[Sliders], setFill = new RectTransform[Sliders], setHandle = new RectTransform[Sliders];
+        Image[] setFillImg = new Image[Sliders], setHandleImg = new Image[Sliders];
         TextMeshProUGUI fullText, windowText, backText;
         RectTransform screenLine;
         Image backChip;
@@ -115,6 +116,7 @@ namespace LoadBearing
 
         void Update()
         {
+            if (IntroCinematic.Playing) { lastInputFrame = Time.frameCount; return; } // sinematik oynarken menü girdisi yok
             if (menu == null || !menu.activeInHierarchy || Time.frameCount == lastInputFrame) return;
             if (seismo != null) { var r = seismo.uvRect; r.x = (r.x + Time.unscaledDeltaTime * 0.02f) % 1f; seismo.uvRect = r; } // çok yavaş kayar
 
@@ -135,19 +137,19 @@ namespace LoadBearing
             bool left = kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame;
             bool right = kb.rightArrowKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame;
             if (kb.escapeKey.wasPressedThisFrame) { ShowMain(); return; }
-            if (up) SelectSetting((setSel + 5) % 6);
-            else if (down) SelectSetting((setSel + 1) % 6);
+            if (up) SelectSetting((setSel + RowBack) % (RowBack + 1));
+            else if (down) SelectSetting((setSel + 1) % (RowBack + 1));
             else if (left || right)
             {
                 int d = right ? 5 : -5;
-                if (setSel < 4) SetValue(setSel, GetValue(setSel) + d);
-                else if (setSel == 4) GameSettings.SetFullscreen(!GameSettings.Fullscreen);
+                if (setSel < Sliders) SetValue(setSel, GetValue(setSel) + d);
+                else if (setSel == RowScreen) GameSettings.SetFullscreen(!GameSettings.Fullscreen);
                 RefreshSettings();
             }
             else if (enter)
             {
-                if (setSel == 4) { GameSettings.SetFullscreen(!GameSettings.Fullscreen); RefreshSettings(); }
-                else if (setSel == 5) ShowMain();
+                if (setSel == RowScreen) { GameSettings.SetFullscreen(!GameSettings.Fullscreen); RefreshSettings(); }
+                else if (setSel == RowBack) ShowMain();
             }
         }
 
@@ -199,6 +201,7 @@ namespace LoadBearing
 
         void Select(int i)
         {
+            if (i != sel && mainPage != null && mainPage.activeInHierarchy) Sfx.PlayUI("SFX_UI_Hover");
             sel = i;
             for (int k = 0; k < 3; k++)
             {
@@ -219,6 +222,7 @@ namespace LoadBearing
 
         void SelectSetting(int i)
         {
+            if (i != setSel && inSettings) Sfx.PlayUI("SFX_UI_Hover");
             setSel = i;
             RefreshSettings();
         }
@@ -228,6 +232,7 @@ namespace LoadBearing
             0 => GameSettings.Master,
             1 => GameSettings.Music,
             2 => GameSettings.Sfx,
+            3 => GameSettings.Brightness,
             _ => GameSettings.Mouse,
         };
 
@@ -238,6 +243,7 @@ namespace LoadBearing
                 case 0: GameSettings.SetMaster(v); break;
                 case 1: GameSettings.SetMusic(v); break;
                 case 2: GameSettings.SetSfx(v); break;
+                case 3: GameSettings.SetBrightness(v); break;
                 default: GameSettings.SetMouse(v); break;
             }
         }
@@ -245,8 +251,8 @@ namespace LoadBearing
         void RefreshSettings()
         {
             if (settingsPage == null) return;
-            for (int i = 0; i < 5; i++) setLabel[i].color = i == setSel ? Cream : CreamSoft;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i <= RowScreen; i++) setLabel[i].color = i == setSel ? Cream : CreamSoft;
+            for (int i = 0; i < Sliders; i++)
             {
                 bool on = i == setSel;
                 int v = GetValue(i);
@@ -266,8 +272,8 @@ namespace LoadBearing
             target.ForceMeshUpdate();
             screenLine.anchoredPosition = new Vector2(target.rectTransform.anchoredPosition.x, screenLine.anchoredPosition.y);
             screenLine.sizeDelta = new Vector2(target.preferredWidth, 4f);
-            backText.color = setSel == 5 ? Cream : CreamSoft;
-            backChipText.color = new Color(Cream.r, Cream.g, Cream.b, setSel == 5 ? 0.9f : 0.6f);
+            backText.color = setSel == RowBack ? Cream : CreamSoft;
+            backChipText.color = new Color(Cream.r, Cream.g, Cream.b, setSel == RowBack ? 0.9f : 0.6f);
         }
 
         // ------------------------------------------------------------------ açılış animasyonu
@@ -278,6 +284,7 @@ namespace LoadBearing
             titleBottom.anchoredPosition = TitlePos;
             titleBottom.localRotation = Quaternion.identity;
             if (shakeRoot != null) shakeRoot.anchoredPosition = Vector2.zero;
+            while (IntroCinematic.Playing) yield return null; // açılış sinematiği bitince çatlasın
             for (float t = 0f; t < 1f; t += Time.unscaledDeltaTime) { if (!menu.activeInHierarchy) yield break; yield return null; }
             // Başlık çatlar: alt yarı (+9, +15) kayar, 0,5° döner; ekran 0,2 sn sarsılır
             for (float t = 0f; t < 0.2f; t += Time.unscaledDeltaTime)
@@ -418,19 +425,21 @@ namespace LoadBearing
             title.alignment = TextAlignmentOptions.TopLeft;
             Bar(p, 150f, 420f, 1620f, 2f, LineCol);
 
-            string[] labels = { "Genel ses", "Müzik", "Efektler", "Fare hızı", "Ekran" };
-            for (int i = 0; i < 5; i++)
+            // 6 satır (tasarımda 5'ti; müzik + parlaklık için aralık 84 -> 72)
+            const float RowH = 72f;
+            string[] labels = { "Genel ses", "Müzik", "Efektler", "Parlaklık", "Fare hızı", "Ekran" };
+            for (int i = 0; i <= RowScreen; i++)
             {
-                float y = 470f + 84f * i;
+                float y = 470f + RowH * i;
                 var row = NewRect("Row_" + labels[i], p);
-                TopLeft(row, 150f, y, 1100f, 84f);
+                TopLeft(row, 150f, y, 1100f, RowH);
                 var hit = row.gameObject.AddComponent<Image>(); hit.color = new Color(0f, 0f, 0f, 0f);
                 int idx = i;
                 var h = row.gameObject.AddComponent<MenuHit>();
                 h.enter = () => { if (setSel != idx) SelectSetting(idx); };
-                setLabel[i] = Txt(row, labels[i], 38f, CreamSoft, UiFonts.SemiBold, 0f, 0f, 420f, 84f);
+                setLabel[i] = Txt(row, labels[i], 38f, CreamSoft, UiFonts.SemiBold, 0f, 0f, 420f, RowH);
 
-                if (i < 4)
+                if (i < Sliders)
                 {
                     // Slider: zemin 520 × 4, dolgu, elmas tutamaç
                     var track = NewRect("Track", row);
@@ -477,28 +486,28 @@ namespace LoadBearing
                         RefreshSettings();
                     };
 
-                    var val = Txt(row, "0", 26f, CreamSoft, UiFonts.SemiBold, 1230f - 150f - 120f, 0f, 120f, 84f);
+                    var val = Txt(row, "0", 26f, CreamSoft, UiFonts.SemiBold, 1230f - 150f - 120f, 0f, 120f, RowH);
                     val.alignment = TextAlignmentOptions.MidlineRight;
                     setValue[i] = val;
                 }
                 else
                 {
                     // Ekran: Tam ekran / Pencere
-                    fullText = Txt(row, "Tam ekran", 30f, Cream, UiFonts.SemiBold, 590f - 150f, 0f, 200f, 84f);
+                    fullText = Txt(row, "Tam ekran", 30f, Cream, UiFonts.SemiBold, 590f - 150f, 0f, 200f, RowH);
                     fullText.ForceMeshUpdate();
                     float fw = fullText.preferredWidth;
-                    fullText.rectTransform.sizeDelta = new Vector2(fw + 2f, 84f);
-                    windowText = Txt(row, "Pencere", 30f, CreamNum, UiFonts.SemiBold, 590f - 150f + fw + 34f, 0f, 200f, 84f);
+                    fullText.rectTransform.sizeDelta = new Vector2(fw + 2f, RowH);
+                    windowText = Txt(row, "Pencere", 30f, CreamNum, UiFonts.SemiBold, 590f - 150f + fw + 34f, 0f, 200f, RowH);
                     windowText.ForceMeshUpdate();
-                    windowText.rectTransform.sizeDelta = new Vector2(windowText.preferredWidth + 2f, 84f);
+                    windowText.rectTransform.sizeDelta = new Vector2(windowText.preferredWidth + 2f, RowH);
                     var fh = fullText.gameObject.AddComponent<MenuHit>();
                     fullText.raycastTarget = true;
-                    fh.click = () => { setSel = 4; GameSettings.SetFullscreen(true); RefreshSettings(); };
+                    fh.click = () => { setSel = RowScreen; GameSettings.SetFullscreen(true); RefreshSettings(); };
                     var wh = windowText.gameObject.AddComponent<MenuHit>();
                     windowText.raycastTarget = true;
-                    wh.click = () => { setSel = 4; GameSettings.SetFullscreen(false); RefreshSettings(); };
+                    wh.click = () => { setSel = RowScreen; GameSettings.SetFullscreen(false); RefreshSettings(); };
 
-                    screenLine = Bar(row, 590f - 150f, 84f / 2f + 22f, fw, 4f, Gold);
+                    screenLine = Bar(row, 590f - 150f, RowH / 2f + 20f, fw, 4f, Gold);
                 }
             }
 
@@ -507,7 +516,7 @@ namespace LoadBearing
             TopLeft(back, 150f, 930f, 360f, 60f);
             back.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
             var bh = back.gameObject.AddComponent<MenuHit>();
-            bh.enter = () => { if (setSel != 5) SelectSetting(5); };
+            bh.enter = () => { if (setSel != RowBack) SelectSetting(RowBack); };
             bh.click = ShowMain;
             backText = Txt(back, "←  Geri", 38f, CreamSoft, UiFonts.SemiBold, 0f, 0f, 200f, 60f);
             backText.ForceMeshUpdate();

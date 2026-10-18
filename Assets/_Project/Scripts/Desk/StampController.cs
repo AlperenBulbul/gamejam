@@ -116,6 +116,7 @@ namespace LoadBearing
                 held = s;
                 inFolder = true;
                 pickFrame = Time.frameCount;
+                Sfx.Play("SFX_Stamp_Pickup");
                 SetColliders(s, false);
             }
         }
@@ -220,6 +221,7 @@ namespace LoadBearing
         IEnumerator ReturnRoutine(StampTool s)
         {
             yield return Move(s.transform, s.transform.position, s.HomePos, returnTime);
+            Sfx.Play("SFX_Stamp_PutDown");
             SetColliders(s, true);
         }
 

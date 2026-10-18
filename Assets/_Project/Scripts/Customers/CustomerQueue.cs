@@ -95,6 +95,7 @@ namespace LoadBearing
             if (day == null || day.customers == null || index >= day.customers.Length) { gm.OnLastCustomerLeft(); yield break; }
 
             var data = day.customers[index++];
+            Sfx.Play("SFX_Door_Open");
             current = Spawn(data);
             current.Begin(data, doorPoint.position, customerSpot.position, gm.Config.customerWalkSeconds);
         }

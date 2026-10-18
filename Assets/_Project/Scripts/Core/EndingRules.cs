@@ -4,7 +4,7 @@ using UnityEngine;
 namespace LoadBearing
 {
     /// Gün sonu denetiminde ilk tutan kovulma nedeni (GDD v3.2 Eki, bölüm 3)
-    public enum FireReason { None, Bribe, FaultLine, Flood, WrongfulRejects, Penalties, Bankrupt, DailyMistakes }
+    public enum FireReason { None, Bribe, FaultLine, Flood, WrongfulRejects, Penalties, Bankrupt, DailyMistakes, MinigameFailed }
 
     /// Kurallara aykırı onayın türü (Validator'la aynı sıra: ilk tutan sayılır)
     public enum WrongApproval { None, FaultLine, Flood, FloorLimit, Soil }
@@ -18,7 +18,8 @@ namespace LoadBearing
     {
         Jail_Bribe, Fired_FaultLine, Fired_Flood, Fired_WrongfulRejects, Fired_Penalties, Fired_Bankrupt,
         Jail_Quake, Jail_Flood, NoOneDied, StillOnTheJob,
-        Fired_DailyMistakes,   // aynı gün 2 yanlış mühür
+        Fired_DailyMistakes,   // aynı gün 2 yanlış mühür (tehlikeli onay yoksa)
+        Fired_Minigame,        // monitör kontrolünde (mikser / kolon) çok hata
     }
 
     public struct EndingResult
@@ -30,6 +31,8 @@ namespace LoadBearing
         public CustomerData featured;      // Hapis sonlarında yıkılan binanın sahibi
         public bool good;                  // ekranda yeşil (Kimse Ölmedi)
         public bool neutral;               // ekranda sarı (Hâlâ İşte)
+        /// Sonuç sinematiğinden önce oynayan felaket videosu (Resources/EndingVideos): CIN_Final_Deprem / CIN_Final_Sel, yoksa null
+        public string prelude;
     }
 
     /// Oyunun kuralları: yanlış onay türü, gün sonu denetimi, deprem / sel sonucu ve son (GDD v3.2 Eki).
@@ -102,6 +105,7 @@ namespace LoadBearing
             if (run.floodApprovals >= floodLimit) return FireReason.Flood;
             if (run.wrongfulRejects >= rejectLimit) return FireReason.WrongfulRejects;
             if (run.penalties >= penaltyLimit) return FireReason.Penalties;
+            if (MinigameFailed(day, cfg)) return FireReason.MinigameFailed;
             if (run.balance < 0) return FireReason.Bankrupt;
             return FireReason.None;
         }
@@ -125,17 +129,72 @@ namespace LoadBearing
 
         // ------------------------------------------------------------------ son
 
+        /// O gün monitör kontrolü (mikser / kolon) kaybedildi mi: tek oyunda defectDamage (3) ve üstü hata
+        public static bool MinigameFailed(int day, GameConfig cfg)
+        {
+            int limit = cfg != null ? cfg.defectDamage : 3;
+            foreach (var r in MinigameDirector.Results)
+                if (r.day == day && r.defects >= limit) return true;
+            return false;
+        }
+
+        public const string PreludeQuake = "CIN_Final_Deprem";
+        public const string PreludeFlood = "CIN_Final_Sel";
+
+        /// Oyunun sonu. Sıra: felaket videosu (varsa) -> sonuç videosu (hapis / kovulma / kimse ölmedi).
+        ///
+        /// FELAKET VİDEOSU: yapılan yanlış onaylara bakılır
+        ///   fay hattı / fazla kat / zemin onayı daha çoksa -> Deprem
+        ///   dere yatağı onayı daha çoksa                   -> Sel
+        ///   ikisi eşitse (ve en az biri varsa)            -> ikisinden rastgele biri
+        ///   hiç yoksa                                      -> felaket videosu yok
+        ///
+        /// SONUÇ VİDEOSU: oyunun neden bittiğine göre
+        ///   Rüşvet                         -> Hapis–Rüşvet (İsmail'le hücrede)
+        ///   Aynı gün 2 yanlış mühür        -> felaket Deprem ise Hapis–Deprem, Sel ise Hapis–Sel,
+        ///                                     felaket yoksa: 2 haksız ret -> Kovuldun–Ruhsat vermeyen, diğer -> Kovuldun–"İkincisi dosya olur"
+        ///   Gün sonu: 2 fay onayı          -> Kovuldun–Fay
+        ///   Gün sonu: 2 dere onayı         -> Kovuldun–Dere
+        ///   Gün sonu: 3 haksız ret         -> Kovuldun–Ruhsat vermeyen
+        ///   Gün sonu: 3 kaçan müşteri      -> Kovuldun–Kapıdan çevrilenler
+        ///   Gün sonu: minigame kaybı       -> Kovuldun–Kasa boşaldı
+        ///   Son gün: bina çöktü / yıkıldı  -> Hapis–Deprem / Hapis–Sel (felaket videosu yıkılan binalara göre)
+        ///   Son gün: en fazla 1 küçük hata -> Kimse Ölmedi (0 hata: plaketli) · diğer -> Hâlâ İşte
         public static EndingResult Resolve(GameManager gm)
         {
             var run = gm != null ? gm.Run : null;
             var cfg = gm != null ? gm.Config : null;
             if (run == null) return Make(EndingId.StillOnTheJob);
 
-            if (run.fireReason != FireReason.None) return Make(FiredId(run.fireReason));
+            if (run.fireReason != FireReason.None)
+            {
+                int disaster = PickDisaster(gm, run, out var wrongOne);
+                EndingResult r;
+                switch (run.fireReason)
+                {
+                    case FireReason.Bribe:
+                        r = Make(EndingId.Jail_Bribe);
+                        break;
+                    case FireReason.DailyMistakes:
+                    case FireReason.WrongfulRejects when run.pendingFired:
+                    case FireReason.Flood when run.pendingFired:
+                        // Aynı gün 2 yanlış mühür: oyun anında biter
+                        if (disaster == 1) r = Make(EndingId.Jail_Quake);
+                        else if (disaster == 2) r = Make(EndingId.Jail_Flood);
+                        else r = Make(run.fireReason == FireReason.WrongfulRejects ? EndingId.Fired_WrongfulRejects : EndingId.Fired_DailyMistakes);
+                        break;
+                    default:
+                        r = Make(FiredId(run.fireReason));
+                        break;
+                }
+                r.prelude = disaster == 1 ? PreludeQuake : disaster == 2 ? PreludeFlood : null;
+                r.featured = wrongOne;
+                return r;
+            }
 
-            // Deprem ve sel
+            // Son gün: deprem ve sel
             CustomerData quake = null, flood = null;
-            int damaged = 0;
+            int quakeN = 0, floodN = 0, damaged = 0;
             var cm = ConstructionManager.Instance;
             if (cm != null)
                 foreach (var s in cm.Sites)
@@ -143,14 +202,22 @@ namespace LoadBearing
                     switch (Outcome(s, cfg))
                     {
                         case SiteOutcome.CollapsedQuake:
+                            quakeN++;
                             if (quake == null || s.customer.floors > quake.floors) quake = s.customer; break;
                         case SiteOutcome.CollapsedFlood:
+                            floodN++;
                             if (flood == null || s.customer.floors > flood.floors) flood = s.customer; break;
                         case SiteOutcome.Damaged: damaged++; break;
                     }
                 }
-            if (quake != null) { var r = Make(EndingId.Jail_Quake); r.featured = quake; return r; }
-            if (flood != null) { var r = Make(EndingId.Jail_Flood); r.featured = flood; return r; }
+            if (quakeN + floodN > 0)
+            {
+                bool q = quakeN > floodN || (quakeN == floodN && Random.value < 0.5f);
+                var r = Make(q ? EndingId.Jail_Quake : EndingId.Jail_Flood);
+                r.prelude = q ? PreludeQuake : PreludeFlood;
+                r.featured = q ? quake : flood;
+                return r;
+            }
 
             // Küçük hatalar: haksız ret + kaçan müşteri + hasarlı bina
             int small = SmallMistakes(run, damaged);
@@ -164,6 +231,37 @@ namespace LoadBearing
             return Make(EndingId.StillOnTheJob);
         }
 
+        /// Yanlış onaylardan felaket: 0 yok, 1 deprem (fay / fazla kat / zemin), 2 sel (dere yatağı).
+        /// Hangisi daha çoksa o; eşitse rastgele. wrongOne: o türdeki ilk yanlış onaylanan müşteri.
+        static int PickDisaster(GameManager gm, RunState run, out CustomerData wrongOne)
+        {
+            int quakeN = 0, floodN = 0;
+            foreach (var t in run.wrongApprovalTypes)
+            {
+                if (t == WrongApproval.FaultLine || t == WrongApproval.FloorLimit || t == WrongApproval.Soil) quakeN++;
+                else if (t == WrongApproval.Flood) floodN++;
+            }
+            wrongOne = null;
+            if (quakeN + floodN == 0) return 0;
+            bool q = quakeN > floodN || (quakeN == floodN && Random.value < 0.5f);
+            wrongOne = WrongCustomer(gm, run, q);
+            Debug.Log($"[Son] Yanlış onaylar: deprem türü {quakeN}, sel türü {floodN} -> {(q ? "Deprem" : "Sel")} videosu");
+            return q ? 1 : 2;
+        }
+
+        /// Kurallara aykırı onaylanan ilk müşteri: deprem türü (fay / kat / zemin) ya da sel (dere yatağı)
+        static CustomerData WrongCustomer(GameManager gm, RunState run, bool quakeType)
+        {
+            for (int i = 0; i < run.wrongApprovalTypes.Count && i < run.wrongApprovalIds.Count; i++)
+            {
+                var t = run.wrongApprovalTypes[i];
+                bool isQuake = t == WrongApproval.FaultLine || t == WrongApproval.FloorLimit || t == WrongApproval.Soil;
+                bool isFlood = t == WrongApproval.Flood;
+                if ((quakeType && isQuake) || (!quakeType && isFlood)) return gm.FindCustomer(run.wrongApprovalIds[i]);
+            }
+            return null;
+        }
+
         public static int SmallMistakes(RunState run, int damagedSites) =>
             (run != null ? run.wrongfulRejects + run.penalties : 0) + damagedSites;
 
@@ -175,6 +273,7 @@ namespace LoadBearing
             FireReason.WrongfulRejects => EndingId.Fired_WrongfulRejects,
             FireReason.Penalties => EndingId.Fired_Penalties,
             FireReason.DailyMistakes => EndingId.Fired_DailyMistakes,
+            FireReason.MinigameFailed => EndingId.Fired_Minigame,
             _ => EndingId.Fired_Bankrupt,
         };
 
@@ -193,6 +292,7 @@ namespace LoadBearing
                 case EndingId.Fired_WrongfulRejects: r.title = "KOVULDUN"; r.body = "Hiç bina yıkılmadı, çünkü hiç bina yapılmadı."; break;
                 case EndingId.Fired_Penalties: r.title = "KOVULDUN"; r.body = "Kapıda bekleyenlerin şikâyet dilekçesi senin dosyandan kalın çıktı."; break;
                 case EndingId.Fired_Bankrupt: r.title = "KOVULDUN"; r.body = "Belediyenin kasası boşaldı. İlk kesilen kalem sendin."; break;
+                case EndingId.Fired_Minigame: r.title = "KOVULDUN"; r.body = "Belediyenin kasası boşaldı. İlk kesilen kalem sendin."; break; // hatalı şantiyeyi belediye ödedi
                 case EndingId.NoOneDied: r.title = "SAYENDE KİMSE ÖLMEDİ"; r.body = "Deprem Karaova'yı salladı ama yıkamadı. Kimse senin adını bilmeyecek. Olsun."; r.good = true; break;
                 default: r.title = "HÂLÂ İŞTE"; r.body = "Karaova ayakta. Birkaç kişi sana kırgın. Yarın masada yeni dosyalar var."; r.neutral = true; break;
             }
@@ -209,6 +309,7 @@ namespace LoadBearing
             EndingId.Fired_Penalties => "Kovuldun — Kapıdan Çevrilenler",
             EndingId.Fired_Bankrupt => "Kovuldun — İflas",
             EndingId.Fired_DailyMistakes => "Kovuldun — Bir günde iki yanlış mühür",
+            EndingId.Fired_Minigame => "Kovuldun — Hatalı şantiye (monitör kontrolü)",
             EndingId.Jail_Quake => "Hapis — Deprem",
             EndingId.Jail_Flood => "Hapis — Sel",
             EndingId.NoOneDied => "Kimse Ölmedi",

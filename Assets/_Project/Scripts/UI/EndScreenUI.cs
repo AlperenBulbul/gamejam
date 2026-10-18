@@ -59,6 +59,7 @@ namespace LoadBearing
             {
                 case GameState.MainMenu:
                     angryLeft.Clear(); faultsFixed = 0; faultsFixedByDay.Clear();
+                    if (endFade != null) { Destroy(endFade); endFade = null; }
                     StopAllCoroutines();
                     Blocking = false;
                     dayCard.SetActive(false);
@@ -124,6 +125,7 @@ namespace LoadBearing
             for (float t = 0f; t < 0.35f; t += Time.unscaledDeltaTime) { summaryGroup.alpha = 1f - t / 0.35f; yield return null; }
             summary.SetActive(false);
             dayText.text = $"{day}. gün";
+            Sfx.PlayUI("SFX_DayTransition");
             for (float t = 0f; t < 0.4f; t += Time.unscaledDeltaTime) { dayText.alpha = t / 0.4f; yield return null; }
             dayText.alpha = 1f;
             for (float t = 0f; t < 1.4f; t += Time.unscaledDeltaTime) yield return null;
@@ -292,7 +294,7 @@ namespace LoadBearing
         {
             var gm = GameManager.Instance;
             var end = EndingRules.Resolve(gm);
-            Debug.Log($"[Son] {end.id}{(end.featured != null ? " (" + end.featured.id + ")" : "")}{(end.badge ? " + Yılın Denetçisi" : "")}");
+            Debug.Log($"[Son] {end.id}{(end.prelude != null ? " · önce " + end.prelude : "")}{(end.featured != null ? " (" + end.featured.id + ")" : "")}{(end.badge ? " + Yılın Denetçisi" : "")}");
 
             var good = new List<string>();
             var bad = new List<string>();
@@ -314,14 +316,21 @@ namespace LoadBearing
             goodText.text = Lines(good, "Kayda değer bir şey yok.");
             badText.text = Lines(bad, "Hata yok.");
 
-            // Rapor hazır; sinematik varsa onun altında bekler (video bitince arada oyun sahnesi görünmesin)
             // Gazete sayfaları sadece 2. gün masada kullanılıyor (oyun sonunda gazete ara ekranı kapalı)
             var pageTex = ShowEndingNewspaper ? NewspaperPages.Load(NewspaperPages.ForEnding(end)) : null;
-            bool covered = FindVideo(end) != null || pageTex != null;
             finish.SetActive(true);
-            finishGroup.alpha = covered ? 1f : 0f;
+            finishGroup.alpha = 0f;
             if (stampRt != null) stampRt.localScale = Vector3.one * 1.6f;
-            yield return PlayEndingVideo(end);
+
+            // Önce ekran siyaha kararır (rapor kâğıdının altında kalır: videolar arasında oyun sahnesi görünmez)
+            yield return FadeToBlack(0.6f);
+
+            // Sıra: felaket videosu (deprem / sel) -> sonuç videosu (hapis / kovulma / kimse ölmedi)
+            var pre = !string.IsNullOrEmpty(end.prelude) ? Resources.Load<UnityEngine.Video.VideoClip>("EndingVideos/" + end.prelude) : null;
+            if (pre != null) yield return PlayClip(pre, false);
+            else if (!string.IsNullOrEmpty(end.prelude)) Debug.LogWarning("[Son] Felaket videosu yok: Resources/EndingVideos/" + end.prelude);
+            var main = FindVideo(end);
+            if (main != null) yield return PlayClip(main, true);
             if (pageTex != null) yield return ShowNewspaper(pageTex); // ertesi sabahın gazetesi
 
             for (float t = 0f; t < 0.6f; t += Time.unscaledDeltaTime)
@@ -349,6 +358,7 @@ namespace LoadBearing
             EndingId.Fired_WrongfulRejects => "CIN_End_Fired_NoPermit",
             EndingId.Fired_Penalties => "CIN_End_Fired_TurnedAway",
             EndingId.Fired_Bankrupt => "CIN_End_Fired_Bankrupt",
+            EndingId.Fired_Minigame => "CIN_End_Fired_Bankrupt",    // "Belediyenin kasası boşaldı": hatalı şantiye
             EndingId.NoOneDied => end.badge ? "CIN_End_NoOneDied_Plaque" : "CIN_End_NoOneDied",
             _ => null,
         };
@@ -380,11 +390,28 @@ namespace LoadBearing
                    (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame));
         }
 
-        /// Sinematik oynar. Tıklanırsa sondaki yazı kartına atlar; video bitince son karede (yazı kartı) bekler,
-        /// tıklayınca rapora geçilir. Ses videonun içinde.
-        IEnumerator PlayEndingVideo(EndingResult end)
+        // ------------------------------------------------------------------ siyaha kararma
+
+        GameObject endFade;
+
+        /// Rapor kâğıdının hemen altında, ekranı kaplayan siyah (videolar bitince de altta kalır)
+        IEnumerator FadeToBlack(float time)
         {
-            var clip = FindVideo(end);
+            if (endFade != null) Destroy(endFade);
+            endFade = new GameObject("EndFade", typeof(RectTransform), typeof(Image));
+            endFade.transform.SetParent(canvas.transform, false);
+            Stretch((RectTransform)endFade.transform);
+            endFade.transform.SetSiblingIndex(finish.transform.GetSiblingIndex()); // kâğıdın altında
+            var img = endFade.GetComponent<Image>();
+            for (float t = 0f; t < time; t += Time.unscaledDeltaTime) { img.color = new Color(0f, 0f, 0f, t / time); yield return null; }
+            img.color = Color.black;
+        }
+
+        /// Sinematik oynar. Ses videonun içinde.
+        ///  holdAtEnd (sonuç videosu): tıklanırsa sondaki yazı kartına atlar; video bitince son karede bekler, tıklayınca devam.
+        ///  !holdAtEnd (felaket videosu): bitince kendiliğinden sıradakine geçer; tıklanırsa hemen geçer.
+        IEnumerator PlayClip(UnityEngine.Video.VideoClip clip, bool holdAtEnd)
+        {
             if (clip == null) yield break;
 
             var back = new GameObject("VideoBack", typeof(RectTransform), typeof(Image));
@@ -448,7 +475,11 @@ namespace LoadBearing
                 {
                     t += Time.unscaledDeltaTime;
                     bool done = ended || (t > 1f && !vp.isPlaying && !vp.isPaused) || t > length + 3.0;
-                    if (done)
+                    if (!holdAtEnd)
+                    {
+                        if (done || (t > 0.8f && ClickedThisFrame())) break;
+                    }
+                    else if (done)
                     {
                         hintGroup.alpha = Mathf.MoveTowards(hintGroup.alpha, 1f, Time.unscaledDeltaTime * 2f);
                         if (ClickedThisFrame() && hintGroup.alpha > 0.3f) break;
@@ -461,6 +492,7 @@ namespace LoadBearing
                     yield return null;
                 }
             }
+            else Debug.LogWarning($"[Son] Video açılamadı: {clip.name}");
             vp.Stop();
             Destroy(hint);
             Destroy(go);

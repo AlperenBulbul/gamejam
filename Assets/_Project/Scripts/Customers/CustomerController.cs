@@ -175,6 +175,7 @@ namespace LoadBearing
             SetStage(PatienceStage.Calm, speak: false);
             Say(Data.greeting);
             GameEvents.RaiseCustomerArrived(Data);
+            float waited = 0f;
 
             while (!decided)
             {
@@ -194,8 +195,9 @@ namespace LoadBearing
                 var st = cfg != null ? cfg.StageFor(Patience) : (Patience > 0f ? Stage : PatienceStage.Gone);
                 if (st != Stage) SetStage(st, speak: true);
                 if (Stage == PatienceStage.Gone) { LeaveAngry(); break; }
-                // Bekletildi (Sabırsız): arkadaki banka gidip oturur (Murat Demir)
-                if (!seated && Data.sitsWhenKept && !tutorial && Stage >= PatienceStage.Impatient)
+                // Bekletildi (SitAfterSeconds sn): arkadaki banka gidip oturur (Murat Demir)
+                waited += Time.deltaTime;
+                if (!seated && Data.sitsWhenKept && !tutorial && waited >= SitAfterSeconds)
                 {
                     seated = true;
                     sitRoutine = StartCoroutine(GoSit());
@@ -332,6 +334,7 @@ namespace LoadBearing
 
         IEnumerator ShakeGlass()
         {
+            Sfx.Play("SFX_Glass_Bang");
             if (glass == null) yield break;
             for (float e = 0f; e < 0.18f; e += Time.deltaTime)
             {
@@ -382,8 +385,10 @@ namespace LoadBearing
             transform.rotation = Quaternion.LookRotation(dir);
             float steps = Mathf.Max(2f, Vector3.Distance(from, to) / 0.35f);
             walking = true;
+            float nextStep = 0.1f;
             for (float t = 0f; t < dur; t += Time.deltaTime)
             {
+                if (t >= nextStep) { Sfx.Footstep(); nextStep += 0.48f; } // tek adım sesleri
                 // Yürüme animasyonu varsa sabit hızla yürü (ayak kaymasın), yoksa yumuşak başla-dur + zıplama
                 float k = hasWalk ? t / dur : Mathf.SmoothStep(0f, 1f, t / dur);
                 transform.position = Vector3.Lerp(from, to, k);
@@ -437,6 +442,7 @@ namespace LoadBearing
         // gövde bankın oturak yüksekliğine indirilir. Üst gövde kendi bekleme animasyonunu oynamaya devam eder.
 
         const string SitLine = "Ben şuraya oturayım, işim bitince seslenin.";
+        const float SitAfterSeconds = 5f;       // gişede bu kadar bekletilince banka gider
         const float SeatRatio = 0.47f / 0.9f;   // SM_Cust_Bench: oturak 0,47 m, toplam yükseklik 0,9 m
         const float HipAboveSeat = 0.10f;      // kalça ekleminin oturak üstündeki yüksekliği
 

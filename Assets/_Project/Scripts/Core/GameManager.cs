@@ -50,6 +50,9 @@ namespace LoadBearing
             if (GetComponent<PauseMenu>() == null) gameObject.AddComponent<PauseMenu>();                     // Esc: duraklatma menüsü
             if (GetComponent<MinigameDirector>() == null) gameObject.AddComponent<MinigameDirector>();       // gün sonu monitör minigame'i
             if (GetComponent<EndScreenUI>() == null) gameObject.AddComponent<EndScreenUI>();                 // gün geçişi + bitiş ekranı
+            if (GetComponent<GameAudio>() == null) gameObject.AddComponent<GameAudio>();                     // final ses paketi (zip 24)
+            if (GetComponent<BrightnessFx>() == null) gameObject.AddComponent<BrightnessFx>();               // Ayarlar > Parlaklık
+            if (GetComponent<IntroCinematic>() == null) gameObject.AddComponent<IntroCinematic>();           // açılış sinematiği (Nasıl Oynanır > BAŞLA sonrası)
             NewRun();
         }
 

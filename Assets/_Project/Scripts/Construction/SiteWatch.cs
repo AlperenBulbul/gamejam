@@ -32,6 +32,10 @@ namespace LoadBearing
                     flashUntil = Time.unscaledTime + 0.9f;
                 }
             }
+            else if (worker == null && mouse != null && mouse.leftButton.wasPressedThisFrame && Time.frameCount != CursorController.LockClickFrame
+                     && OnMonitor() && MonitorFeed.Instance != null && MonitorFeed.Instance.Shown != null
+                     && MinigameDirector.Instance != null && MinigameDirector.Instance.PointerOnScreen(out _))
+                Sfx.Play("SFX_Worker_WrongClick"); // şantiyede boşa / düzgün işçiye tıklandı
 
             bool flash = Time.unscaledTime < flashUntil && OnMonitor();
             bool show = worker != null || flash;

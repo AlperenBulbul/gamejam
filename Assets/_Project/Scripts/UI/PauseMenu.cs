@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace LoadBearing
 {
     /// Esc (masadayken): oyunu duraklatır, arka plan bulanıklaşır, ortada menü çıkar.
-    ///  Küçük not kâğıdı: Masaya dön (ya da tekrar Esc) / Ana menü / Oyundan çık
+    ///  Küçük not kâğıdı: Masaya dön (ya da tekrar Esc) / Ayarlar (ses, parlaklık) / Ana menü / Oyundan çık
     /// Duraklatınca zaman durur (müşteri sabrı, şantiyeler, konuşmalar), sesler susar, masa kontrolleri kapanır.
     /// Yakın bakıştayken Esc önce masaya döndürür; ikinci Esc menüyü açar.
     /// GameManager bu bileşeni kendisi ekler, sahnede kurulum gerekmez.
@@ -26,6 +26,12 @@ namespace LoadBearing
         CanvasGroup group;
         float savedTimeScale = 1f;
         bool opening;
+
+        // Ayarlar görünümü (aynı kâğıtta): Ses + Parlaklık
+        GameObject buttonsView, settingsView;
+        TextMeshProUGUI titleText;
+        readonly System.Collections.Generic.List<System.Action> refreshers = new System.Collections.Generic.List<System.Action>();
+        bool SettingsOpen => settingsView != null && settingsView.activeSelf;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() { IsPaused = false; LastToggleFrame = -10; }
@@ -51,7 +57,12 @@ namespace LoadBearing
             if (kb == null || !kb.escapeKey.wasPressedThisFrame || opening) return;
             if (Time.frameCount == LastToggleFrame) return;
 
-            if (IsPaused) { Resume(); return; }
+            if (IsPaused)
+            {
+                if (SettingsOpen) { ShowButtons(); return; } // ayarlardan önce düğmelere dön
+                Resume();
+                return;
+            }
 
             var gm = GameManager.Instance;
             var fc = FocusController.Instance;
@@ -75,6 +86,7 @@ namespace LoadBearing
             savedTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
             Time.timeScale = 0f;
             AudioListener.pause = true;
+            ShowButtons();
             root.SetActive(true);
             opening = false;
 
@@ -91,6 +103,7 @@ namespace LoadBearing
             if (!IsPaused) return;
             IsPaused = false;
             LastToggleFrame = Time.frameCount;
+            GameSettings.Save();
             Time.timeScale = savedTimeScale;
             AudioListener.pause = false;
             if (root != null) root.SetActive(false);
@@ -148,7 +161,7 @@ namespace LoadBearing
             var panel = (RectTransform)panelGo.transform;
             panel.SetParent(root.transform, false);
             panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
-            panel.sizeDelta = new Vector2(720f, 640f);
+            panel.sizeDelta = new Vector2(720f, 730f); // 4 düğme (Ayarlar eklendi)
             var pimg = panelGo.GetComponent<Image>();
             var panelSp = Sprite2x("Pause/UI_Pause_Panel", 140f);
             if (panelSp != null) { pimg.sprite = panelSp; pimg.type = Image.Type.Sliced; pimg.color = Color.white; }
@@ -166,6 +179,7 @@ namespace LoadBearing
 
             var title = Place(Label(panel, "Mola", 72f, new Color32(0x22, 0x22, 0x22, 0xFF), 0f), left, 138f, 496f, 86f);
             if (heavy != null) title.font = heavy; else title.fontStyle = FontStyles.Bold;
+            titleText = title;
 
             var line = new GameObject("Line", typeof(RectTransform), typeof(Image));
             var lrt = (RectTransform)line.transform;
@@ -174,13 +188,117 @@ namespace LoadBearing
             line.GetComponent<Image>().color = new Color32(0x2B, 0x2B, 0x2B, 0xFF);
 
             // Düğmeler: 496 × 76 (görsel 1000 × 172 px, altta basılma payı), aralarında 14
-            Button(panel, "Masaya dön", true, Resume, left, 273f, new Color32(0xF7, 0xF4, 0xEE, 0xFF), semi);
-            Button(panel, "Ana menü", false, ToMainMenu, left, 363f, new Color32(0x2B, 0x2B, 0x2B, 0xFF), regular);
-            var quit = Button(panel, "Oyundan çık", false, Quit, left, 453f, new Color32(0x8B, 0x3A, 0x30, 0xFF), regular);
+            buttonsView = View(panel, "Buttons");
+            var bv = (RectTransform)buttonsView.transform;
+            Button(bv, "Masaya dön", true, Resume, left, 273f, new Color32(0xF7, 0xF4, 0xEE, 0xFF), semi);
+            Button(bv, "Ayarlar", false, ShowSettings, left, 363f, new Color32(0x2B, 0x2B, 0x2B, 0xFF), regular);
+            Button(bv, "Ana menü", false, ToMainMenu, left, 453f, new Color32(0x2B, 0x2B, 0x2B, 0xFF), regular);
+            var quit = Button(bv, "Oyundan çık", false, Quit, left, 543f, new Color32(0x8B, 0x3A, 0x30, 0xFF), regular);
 #if UNITY_WEBGL && !UNITY_EDITOR
             quit.SetActive(false); // tarayıcıda çıkış olmaz
 #endif
+
+            // Ayarlar: Ses + Parlaklık (kaydırıcı), Geri
+            settingsView = View(panel, "Settings");
+            var sv = (RectTransform)settingsView.transform;
+            SettingSlider(sv, "Ses", 266f, () => GameSettings.Master, GameSettings.SetMaster, left, semi);
+            SettingSlider(sv, "Parlaklık", 392f, () => GameSettings.Brightness, GameSettings.SetBrightness, left, semi);
+            Button(sv, "Geri", false, ShowButtons, left, 543f, new Color32(0x2B, 0x2B, 0x2B, 0xFF), regular);
+            settingsView.SetActive(false);
             root.SetActive(false);
+        }
+
+        // ------------------------------------------------------------------ ayarlar
+
+        void ShowSettings()
+        {
+            if (buttonsView == null) return;
+            buttonsView.SetActive(false);
+            settingsView.SetActive(true);
+            if (titleText != null) titleText.text = "Ayarlar";
+            foreach (var r in refreshers) r();
+        }
+
+        void ShowButtons()
+        {
+            if (buttonsView == null) return;
+            GameSettings.Save();
+            settingsView.SetActive(false);
+            buttonsView.SetActive(true);
+            if (titleText != null) titleText.text = "Mola";
+        }
+
+        static GameObject View(RectTransform panel, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(panel, false);
+            Stretch(rt);
+            return go;
+        }
+
+        /// Etiket + değer (üstte), altında 496 birimlik kaydırıcı: tıkla / sürükle
+        void SettingSlider(RectTransform parent, string label, float y, System.Func<int> get, System.Action<int> set, float left, TMP_FontAsset font)
+        {
+            var ink = new Color32(0x2B, 0x2B, 0x2B, 0xFF);
+            var gold = new Color32(0x8A, 0x6A, 0x2E, 0xFF);
+
+            var lab = Place(Label(parent, label, 30f, ink, 0f), left, y, 300f, 44f);
+            if (font != null) lab.font = font; else lab.fontStyle = FontStyles.Bold;
+            var val = Place(Label(parent, "", 26f, gold, 0f), left + 296f, y, 200f, 44f);
+            val.alignment = TextAlignmentOptions.MidlineRight;
+            if (font != null) val.font = font;
+
+            const float W = 496f;
+            var track = new GameObject("Track", typeof(RectTransform), typeof(Image));
+            var trt = (RectTransform)track.transform;
+            trt.SetParent(parent, false);
+            TopLeft(trt, left, y + 62f, W, 4f);
+            var timg = track.GetComponent<Image>();
+            timg.color = new Color(0.17f, 0.17f, 0.17f, 0.22f);
+            timg.raycastTarget = false;
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            var frt = (RectTransform)fill.transform;
+            frt.SetParent(trt, false);
+            frt.anchorMin = frt.anchorMax = new Vector2(0f, 0.5f);
+            frt.pivot = new Vector2(0f, 0.5f);
+            fill.GetComponent<Image>().color = gold;
+            fill.GetComponent<Image>().raycastTarget = false;
+
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            var hrt = (RectTransform)handle.transform;
+            hrt.SetParent(trt, false);
+            hrt.anchorMin = hrt.anchorMax = new Vector2(0f, 0.5f);
+            hrt.sizeDelta = new Vector2(20f, 20f);
+            hrt.localRotation = Quaternion.Euler(0f, 0f, 45f); // elmas
+            handle.GetComponent<Image>().color = ink;
+            handle.GetComponent<Image>().raycastTarget = false;
+
+            System.Action refresh = () =>
+            {
+                int v = get();
+                float k = v / 100f;
+                val.text = v.ToString();
+                frt.sizeDelta = new Vector2(W * k, 4f);
+                hrt.anchoredPosition = new Vector2(W * k, 0f);
+            };
+            refreshers.Add(refresh);
+            refresh();
+
+            // Tıklama / sürükleme alanı: kaydırıcı boyunca
+            var hit = new GameObject("Drag", typeof(RectTransform), typeof(Image));
+            var hitRt = (RectTransform)hit.transform;
+            hitRt.SetParent(parent, false);
+            TopLeft(hitRt, left - 14f, y + 40f, W + 28f, 48f);
+            hit.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            var mh = hit.AddComponent<MenuHit>();
+            mh.drag = pos =>
+            {
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(trt, pos, null, out var local);
+                set(Mathf.RoundToInt(Mathf.Clamp01(local.x / W) * 100f));
+                refresh();
+            };
         }
 
         /// 2x çözünürlüklü tasarım görseli -> sprite (1 birim = 2 piksel), isteğe bağlı 9 dilim kenarı (piksel)
@@ -233,6 +351,7 @@ namespace LoadBearing
             }
             else img.color = primary ? new Color32(0x2B, 0x2B, 0x2B, 0xFF) : new Color32(0xF3, 0xEF, 0xE7, 0xFF);
             btn.onClick.AddListener(onClick);
+            go.AddComponent<MenuHit>().enter = () => Sfx.PlayUI("SFX_UI_Hover");
 
             var label = Label(rt, text, 30f, textColor, 0f);
             var lr = label.rectTransform;
