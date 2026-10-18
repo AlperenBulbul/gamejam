@@ -58,20 +58,34 @@ Ayarlar (ana menü ve duraklatma menüsü): genel ses, müzik, efektler, parlakl
 
 | Kategori | Kaynak / sağlayıcı | Bağlantı | Lisans / kullanım izni | Oyundaki kullanımı |
 |---|---|---|---|---|
-| Görsel (animasyon) | Mixamo (Adobe) | https://www.mixamo.com/ | Mixamo kullanım şartları (oyun / proje içinde ücretsiz kullanım) | Müşteri karakterlerinin konuşma, bağırma, tartışma, dans, yürüme animasyonları. Modellerimize Unity'de Humanoid olarak uygulandı. |
-| Ses (müzik) | Fuzzeke – "Plan A" | https://www.youtube.com/watch?v=TXgVIwSaKME | Sanatçının paylaştığı kullanım koşulları | Sadece tanıtım videosunun (trailer) müziği; oyunun içinde yok. |
+| Görsel (animasyon) | Mixamo (Adobe) | https://www.mixamo.com/ | Mixamo kullanım şartları: oyun içinde ücretsiz kullanım serbest. Animasyon dosyaları (aşağıda listelenen `.fbx` dosyaları) repoda bulunuyor; yarışma yetkilileri, beyan edilmesi koşuluyla kullanılabileceğini bildirdi. | Müşteri karakterlerinin konuşma, bağırma, tartışma, dans, yürüme ve bekleme animasyonları. Modellerimize Unity'de Humanoid olarak uygulandı. |
+| Ses (müzik) | Fuzzeke – "Plan A" | https://www.youtube.com/watch?v=TXgVIwSaKME | Yayıncı, video açıklamasında telif hakkı talep etmediğini ve serbestçe kullanılabileceğini belirtiyor | Sadece tanıtım videosunun (trailer) müziği; oyunun içinde yok. |
 | Metin (yazı tipi) | Inter – Rasmus Andersson | https://rsms.me/inter/ | SIL Open Font License 1.1 | Menü, rapor ve arayüz yazıları |
 | Metin (yazı tipi) | Liberation Sans (TextMesh Pro ile gelen) | https://github.com/liberationfonts/liberation-fonts | SIL Open Font License 1.1 | Oyun içi yazılar (Türkçe karakterler eklendi) |
 | Kod (motor / paket) | Unity Technologies: Universal RP, Input System, TextMesh Pro, Video | https://unity.com/ | Unity Companion License / Unity şartları | Motor ve standart paketler; oyun kodu ekibe ait |
 
 Kullanılmadı: hazır 3D model paketi, hazır ses efekti paketi, hazır kod / script paketi.
 
+### Mixamo'dan alınan animasyon dosyaları
+
+Karakter modelleri ekibimize aittir (Meshy.ai ile üretildi, Blender'da düzenlendi). Aşağıdaki animasyon dosyaları Mixamo'dan alınmıştır:
+
+| Dosya | Klasör |
+|---|---|
+| `HasanAmca@Talking.fbx`, `HasanAmca@Angry Point.fbx` | `Assets/Art/Characters/HasanAmca` |
+| `SK_Customer_C2_Mahmut@Dancing Twerk.fbx` | `Assets/Art/Characters/Mahmut` |
+| `SK_Customer_C8_Emre@Kızgın.fbx`, `SK_Customer_C8_Emre@Standing Arguing(talking için).fbx` | `Assets/Art/Characters/Emre` |
+| `SK_Customer_C5_Naciye@Talking.fbx` | `Assets/Art/Characters/Naciye` |
+| `SK_Customer_C10_Zeynep@Talking.fbx`, `SK_Customer_C10_Zeynep@Standing Arguing.fbx` | `Assets/Art/Characters/Zeynep` |
+| `SK_Customer_C12_Ismail@Talking.fbx`, `SK_Customer_C12_Ismail@Yelling.fbx` | `Assets/Art/Characters/Ismail` |
+| `A_Customer_Selin_*.fbx` (Idle, Impatient, Angry, Rage, Talk, Happy, Sad, Walk) | `Assets/Art/Characters/Selin` |
+
 ## AI kullanım beyanı
 
 | Kategori | Kullanıldı mı | Araç | Amaç ve oyundaki kullanım yeri |
 |---|---|---|---|
-| Görsel | Kullanıldı | Claude, Meshy.ai | Tüm görsel içerikler ve 3D modeller (ofis, masa eşyaları, karakterler, harita, gazete, menüler, sinematikler) AI ile üretildi; modeller Blender'da düzenlendi. |
-| Ses | Kullanıldı | AI ses üretim araçları | Oyun içindeki ses efektleri ve ortam sesleri. Müşteri mırıltısı ve telsiz cızırtısı oyun kodunda üretilir. |
+| Görsel | Kullanıldı | Claude, Meshy.ai (+ Blender) | Tüm görsel içerikler ve 3D modeller (ofis, masa eşyaları, karakterler, harita, gazete, menüler) AI ile üretildi; modeller Blender'da düzenlendi. Açılış ve son sinematikleri Claude ve Meshy.ai ile üretilen içerikler Blender'da birleştirilerek hazırlandı. |
+| Ses | Kullanıldı | Claude | Oyun içindeki ses efektleri ve ortam sesleri Claude ile üretildi. Müşteri mırıltısı ve telsiz cızırtısı Claude'un yazdığı oyun kodunda anlık üretilir. |
 | Kod | Kullanıldı | Claude | Oyunun tüm kodu (oyun mantığı, arayüz, minigame'ler, kurulum araçları) Claude ile yazıldı; ekip tarafından Unity'de test edilip yönlendirildi. |
 | Metin | Kullanıldı | Claude | Karakter diyalogları, gazete ve kural metinleri, açıklamalar Claude ile oluşturuldu; ekip tarafından düzenlendi. |
 | Diğer | Kullanıldı | Claude | Minigame mekanikleri ve oyun kuralları AI tarafından önerildi; ekip tarafından seçilip düzenlenerek eklendi. |
