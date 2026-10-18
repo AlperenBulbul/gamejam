@@ -117,6 +117,7 @@ namespace LoadBearing
                     if (walking) Play("Walk", "Idle"); else Play("Idle");
                     break;
                 case Phase.Waiting:
+                    if (Data != null && Data.calmWhileWaiting) { if (talking) Play("Talking", "Idle"); else Play("Idle"); break; }
                     switch (Stage)
                     {
                         case PatienceStage.Calm: if (talking) Play("Talking", "Idle"); else Play("Idle"); break;
@@ -202,23 +203,30 @@ namespace LoadBearing
                     seated = true;
                     sitRoutine = StartCoroutine(GoSit());
                 }
-                if (!seated) AnimateWaiting();
+                if (!seated && !Data.calmWhileWaiting) AnimateWaiting();
                 yield return null;
             }
             ResetPose();
 
-            // Banktaysa (ya da banka yürüyorsa) kalkar; karar verildiyse gişeye geri gelir, sinirliyse kapıya gider
+            // Banktaysa (ya da banka yürüyorsa) kalkar ve gişeye geri gelir:
+            //  karar verildiyse tepkisini gösterir; beklemekten sıkıldıysa dosyasını alıp kapıya gider
+            bool folderTaken = false;
             if (seated)
             {
                 if (sitRoutine != null) { StopCoroutine(sitRoutine); sitRoutine = null; }
                 walking = false;
                 yield return StandUp();
-                if (!angryExit)
+                if (angryExit)
                 {
-                    yield return Turn(Quaternion.LookRotation(Flat(spotPos - transform.position)), 0.25f);
-                    yield return Walk(transform.position, spotPos, WalkSecondsTo(spotPos));
-                    yield return Turn(Quaternion.LookRotation(FacePlayer()), 0.25f);
+                    // Dosya hemen geri alınır (bu sırada mühür basılamasın), müşteri gişeye yürüyüp alır
+                    folderTaken = true;
+                    Current = Phase.WalkOut;
+                    GameEvents.RaiseCustomerLeaving(Data);
                 }
+                yield return Turn(Quaternion.LookRotation(Flat(spotPos - transform.position)), 0.25f);
+                yield return Walk(transform.position, spotPos, WalkSecondsTo(spotPos));
+                yield return Turn(Quaternion.LookRotation(FacePlayer()), 0.25f);
+                if (angryExit) yield return new WaitForSeconds(0.6f); // dosyayı alır
                 seated = false;
             }
 
@@ -239,16 +247,16 @@ namespace LoadBearing
 
             // Dosyayı al, çık
             Current = Phase.WalkOut;
-            GameEvents.RaiseCustomerLeaving(Data);
+            if (!folderTaken) GameEvents.RaiseCustomerLeaving(Data);
             // Sinirli çıkış: reddedildi, beklemekten gitti ya da öfkelenene kadar bekletildi
-            bool angryOut = angryExit || !approved || Stage >= PatienceStage.Rage;
+            bool angryOut = Data.calmWhileWaiting ? (!angryExit && !approved) : (angryExit || !approved || Stage >= PatienceStage.Rage);
             var exitClip = ExitClip(angryOut);
             if (exitClip != null)
                 yield return ClipExit(exitClip, angryOut);
             else
             {
                 yield return Turn(Quaternion.LookRotation(Flat(doorPos - transform.position)), 0.2f);
-                if (angryExit) walkTime *= 0.75f; // sinirli: hızlı yürür
+                if (angryExit && !Data.calmWhileWaiting) walkTime *= 0.75f; // sinirli: hızlı yürür
                 yield return Walk(transform.position, doorPos);
             }
 
@@ -266,6 +274,7 @@ namespace LoadBearing
             nextBang = 0.6f;
             GameEvents.RaisePatienceStageChanged(s);
             if (!speak || s == PatienceStage.Gone) return;
+            if (Data != null && Data.calmWhileWaiting) return; // sakin karakter beklerken söylenmez
             var line = dialogue != null ? dialogue.RandomFor(s) : null;
             Say(line ?? "Hrrm...");
         }
@@ -275,6 +284,7 @@ namespace LoadBearing
             angryExit = true;
             decided = true;
             var leave = dialogue != null ? dialogue.RandomFor(PatienceStage.Gone) : null;
+            if (Data.calmWhileWaiting) leave = "Neyse... başka zaman gelirim."; // sakin karakter sinirlenmeden gider
             Say(leave ?? "Başka kapı da var!");
 
             var gm = GameManager.Instance;

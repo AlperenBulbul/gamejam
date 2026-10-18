@@ -35,8 +35,32 @@ namespace LoadBearing
             if (envelopeClick != null)
             {
                 envelopeClick.Clicked += _ => Take();
-                envelopeClick.prompt = "Rüşveti kabul et"; // imlecin yanında sol tık simgesiyle
+                envelopeClick.prompt = "Rüşvet al"; // sadece imleç zarfın üstündeyken: sol tık simgesi + yazı (HoverPromptUI)
             }
+            GrowCollider();
+        }
+
+        /// Zarfın tıklama kutusu çok ince (kâğıt kalınlığı): üstündeki form / dosya önce vuruluyordu,
+        /// imleç zarfa gelince ipucu çıkmıyordu. Kutuyu yukarı doğru biraz kalınlaştır, kenarlardan hafif büyüt.
+        void GrowCollider()
+        {
+            var col = envelopeClick != null ? envelopeClick.GetComponent<BoxCollider>() : null;
+            if (col == null && envelope != null) col = envelope.GetComponent<BoxCollider>();
+            if (col == null) return;
+            var ls = col.transform.lossyScale;
+            float minH = 0.025f / Mathf.Max(1e-4f, Mathf.Abs(ls.y));
+            var size = col.size;
+            var center = col.center;
+            if (size.y < minH)
+            {
+                float bottom = center.y - size.y * 0.5f;
+                size.y = minH;
+                center.y = bottom + minH * 0.5f;
+            }
+            size.x *= 1.08f;
+            size.z *= 1.08f;
+            col.size = size;
+            col.center = center;
         }
 
         void OnEnable()

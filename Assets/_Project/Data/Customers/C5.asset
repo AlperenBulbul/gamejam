@@ -32,7 +32,7 @@ MonoBehaviour:
   body: 1
   variantMaterial: {fileID: 0}
   characterPrefab: {fileID: 4037309483756272284, guid: 5ee3676fa5dc37647a955a8e2e6d0b54, type: 3}
-  greeting: "K\u0131z\u0131m, tek katl\u0131 k\xFC\xE7\xFCk bir ev. M\xFChendis bey her \u015Feyi haz\u0131rlad\u0131."
-  approveLine: "\xC7ok te\u015Fekk\xFCr ederim k\u0131z\u0131m."
+  greeting: "Evlad\u0131m, tek katl\u0131 k\xFC\xE7\xFCk bir ev. M\xFChendis bey her \u015Feyi haz\u0131rlad\u0131."
+  approveLine: "\xC7ok te\u015Fekk\xFCr ederim evlad\u0131m."
   rejectLine: "M\xFChendis bey \xF6yle dememi\u015Fti ama..."
   expectedValid: 0

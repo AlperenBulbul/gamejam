@@ -311,7 +311,7 @@ namespace LoadBearing
         void Say(string line)
         {
             var sp = SpeechSystem.Instance;
-            if (sp != null) sp.Say(radioVoice, line, PatienceStage.Calm);
+            if (sp != null) sp.Say(radioVoice, line, PatienceStage.Calm, backdrop: true); // telsiz yazısı: arkasında koyu kutu
         }
 
         static float LineTime(string line)

@@ -36,6 +36,8 @@ namespace LoadBearing
         public GameObject characterPrefab;
         [Tooltip("Bekletilince (Sabırsız aşaması) arkadaki banka gidip oturur, karar verilince gişeye geri gelir")]
         public bool sitsWhenKept;
+        [Tooltip("Beklerken sakin kalır: sinirlenme hareketleri / kızarma / söylenme yok (modeli bekleme animasyonlarında bozulan karakterler)")]
+        public bool calmWhileWaiting;
 
         [Header("Replikler")]
         [TextArea] public string greeting;

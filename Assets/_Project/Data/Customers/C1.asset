@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::LoadBearing.CustomerData
   id: C1
   day: 1
-  displayName: "Hasan ve Emine Y\u0131ld\u0131z"
-  role: "Emekli \xE7ift"
+  displayName: "Hasan Y\u0131ld\u0131z"
+  role: Emekli
   ada: 12
   parsel: 4
   areaM2: 150

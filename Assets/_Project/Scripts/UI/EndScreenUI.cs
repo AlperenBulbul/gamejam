@@ -348,7 +348,7 @@ namespace LoadBearing
 
         // ------------------------------------------------------------------ bitiş videosu (tasarımcı, 17 Ekim)
 
-        /// Resources/EndingVideos altındaki sinematik. Hâlâ İşte için video yok.
+        /// Resources/EndingVideos altındaki sinematik. Hâlâ İşte (küçük hatalar) da mutlu son videosunu oynar.
         static string VideoName(EndingResult end) => end.id switch
         {
             EndingId.Jail_Quake => "CIN_End_Jail_Quake",
@@ -362,6 +362,7 @@ namespace LoadBearing
             EndingId.Fired_Bankrupt => "CIN_End_Fired_Bankrupt",
             EndingId.Fired_Minigame => "CIN_End_Fired_Bankrupt",    // "Belediyenin kasası boşaldı": hatalı şantiye
             EndingId.NoOneDied => end.badge ? "CIN_End_NoOneDied_Plaque" : "CIN_End_NoOneDied",
+            EndingId.StillOnTheJob => "CIN_End_NoOneDied",            // küçük hatalar (minigame / çatlak bina): yine mutlu son
             _ => null,
         };
 
@@ -372,7 +373,7 @@ namespace LoadBearing
             EndingId.Jail_Flood => "IMG_End_Jail_Flood",
             EndingId.Jail_Bribe => "IMG_End_Jail_Bribe",
             EndingId.NoOneDied => "IMG_End_NoOneDied",
-            EndingId.StillOnTheJob => null,
+            EndingId.StillOnTheJob => "IMG_End_NoOneDied",
             _ => "IMG_End_Fired",
         };
 

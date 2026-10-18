@@ -39,8 +39,27 @@ namespace LoadBearing
             if (syllables == null || syllables.Length == 0) syllables = GibberishSynth.Make(6, false);
             if (grumbles == null || grumbles.Length == 0) grumbles = GibberishSynth.Make(2, true);
             if (group != null) group.alpha = 0f;
-            UseBackdrop();
-            UseShadow();
+            HideBackdrop();
+            UseOutline();
+        }
+
+        /// Arka plan kutusu yok: sahne tamamen görünür, yazı siyah kenarla okunur
+        void HideBackdrop() => SetBackdrop(false);
+
+        void SetBackdrop(bool on)
+        {
+            if (background == null) return;
+            var img = background.GetComponent<Image>();
+            if (img == null) { if (!on) return; img = background.gameObject.AddComponent<Image>(); }
+            if (on)
+            {
+                img.sprite = SoftBox();
+                img.type = Image.Type.Sliced;
+                img.color = new Color(0.03f, 0.03f, 0.03f, 0.78f);
+                img.raycastTarget = false;
+                background.SetSiblingIndex(0); // yazının arkasında
+            }
+            img.enabled = on;
         }
 
         /// Yazının arkasında yumuşak kenarlı, yarı şeffaf koyu kutu: arkadaki sahne seçilir, yazı her zeminde okunur
@@ -90,19 +109,24 @@ namespace LoadBearing
         }
 
         /// Yazının altında hafif gölge (kutuyla birlikte her zeminde okunsun)
-        void UseShadow()
+        /// Gölge yok; harflerin çevresinde net siyah kenar (outline)
+        void UseOutline()
         {
             if (text == null) return;
             var m = text.fontMaterial; // örnek materyal: diğer yazıları etkilemez
+            m.SetFloat("_FaceDilate", 0.2f); // kenar harfi inceltmesin
+            // Kalın kenar: SDF outline'ı tek başına ince kalıyor; kaydırmasız, keskin underlay ile dışa doğru kalınlaştır
+            // (kaydırma yok, yumuşaklık yok: gölge değil, harfin her yanında eşit siyah çerçeve)
             m.EnableKeyword("UNDERLAY_ON");
-            m.SetColor("_UnderlayColor", new Color(0f, 0f, 0f, 0.75f));
-            m.SetFloat("_UnderlayOffsetX", 0.45f);
-            m.SetFloat("_UnderlayOffsetY", -0.55f);
-            m.SetFloat("_UnderlayDilate", 0.35f);
-            m.SetFloat("_UnderlaySoftness", 0.45f);
+            m.DisableKeyword("UNDERLAY_INNER");
+            m.SetColor("_UnderlayColor", Color.black);
+            m.SetFloat("_UnderlayOffsetX", 0f);
+            m.SetFloat("_UnderlayOffsetY", 0f);
+            m.SetFloat("_UnderlayDilate", 1f);
+            m.SetFloat("_UnderlaySoftness", 0.05f);
             text.fontMaterial = m;
-            text.outlineWidth = 0.12f;
-            text.outlineColor = new Color32(0, 0, 0, 200);
+            text.outlineWidth = 0.35f;
+            text.outlineColor = new Color32(0, 0, 0, 255);
         }
 
         // ------------------------------------------------------------------ alttaki yönerge çubuklarıyla çakışmasın
@@ -132,10 +156,13 @@ namespace LoadBearing
             if (gm != null && !gm.DeskInputEnabled) Clear();
         }
 
-        public void Say(CustomerData who, string line, PatienceStage stage)
+        /// backdrop: yazının arkasında yarı şeffaf koyu kutu (telsiz: monitörün parlak görüntüsü üstünde okunsun).
+        /// Müşteri konuşmalarında kutu yok, sadece siyah kenar.
+        public void Say(CustomerData who, string line, PatienceStage stage, bool backdrop = false)
         {
             if (who == null || string.IsNullOrEmpty(line) || text == null) return;
             if (speaking != null) StopCoroutine(speaking);
+            SetBackdrop(backdrop);
             speaking = StartCoroutine(Speak(who, line, stage));
         }
 

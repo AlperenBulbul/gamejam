@@ -135,7 +135,7 @@ namespace LoadBearing.EditorTools
             }
 
             //  id    gün  isim                       rol                              ada parsel m²  kat kullanım         ruhsat      zemin            taşkın fay   rüşvet sabır perde
-            C("C1", 1, "Hasan ve Emine Yıldız", "Emekli çift", 12, 4, 150, 2, "Konut", "İMO-1047", SoilType.None, false, false, 0, 120, 0.85f, BodyType.Male,
+            C("C1", 1, "Hasan Yıldız", "Emekli", 12, 4, 150, 2, "Konut", "İMO-1047", SoilType.None, false, false, 0, 120, 0.85f, BodyType.Male,
                 "Merhaba evladım. Torunlar gelince sığalım diye küçük bir ev.", "Allah razı olsun evladım!", "Ama... bütün birikimimizi koyduk.", true);
             C("C2", 1, "Mahmut Aydın", "Küçük müteahhit", 7, 19, 320, 4, "Konut", "İMO-2213", SoilType.None, false, false, 0, 90, 1.0f, BodyType.Male,
                 "Merhaba. Dereye yakın ama merak etme, her şey hesaplı.", "Teşekkürler, ekip yarın sahada.", "Ölçüleri kendin kontrol et istersen. Pekâlâ.", true);
@@ -144,7 +144,7 @@ namespace LoadBearing.EditorTools
             C("C4", 2, "Murat Demir", "Kalabalık bir ailenin babası", 15, 2, 180, 4, "Konut", "İMO-2213", SoilType.None, false, false, 0, 90, 0.95f, BodyType.Male,
                 "Beş çocuk, bir babaanne. Dört kat lazım bize.", "Sağ ol kardeşim, sağ ol!", "Peki biz nereye sığacağız...", false);
             C("C5", 2, "Fatma Çelik", "Yalnız yaşayan yaşlı kadın", 9, 11, 140, 1, "Konut", "İMO-4512", SoilType.None, false, false, 0, 110, 1.35f, BodyType.Female,
-                "Kızım, tek katlı küçük bir ev. Mühendis bey her şeyi hazırladı.", "Çok teşekkür ederim kızım.", "Mühendis bey öyle dememişti ama...", false);
+                "Evladım, tek katlı küçük bir ev. Mühendis bey her şeyi hazırladı.", "Çok teşekkür ederim evladım.", "Mühendis bey öyle dememişti ama...", false);
             C("C6", 2, "Okan Yalın", "Yalın Yapı A.Ş. temsilcisi", 21, 6, 420, 5, "Konut", "İMO-3390", SoilType.Solid, false, false, 0, 80, 1.05f, BodyType.Male,
                 "Yalın Yapı. Zemin etüdü ve kaşe ekte. Her şey tam.", "Güzel. İşimizi biliriz.", "Bunu itiraz yoluyla çözeriz.", true);
             C("C7", 2, "İsmail Zirve", "Zirve Holding sahibi", 1, 1, 450, 6, "Rezidans", "İMO-5876", SoilType.Solid, false, true, 1500, 100, 0.8f, BodyType.Male,

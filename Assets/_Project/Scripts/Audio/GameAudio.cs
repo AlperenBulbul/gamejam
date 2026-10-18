@@ -259,7 +259,7 @@ namespace LoadBearing
             // zarf sesi: BribeEnvelope zarfı 2-3 sn sonra uzattığında çalar
         }
 
-        void OnLeft(CustomerData c, bool angry) { if (angry) Sfx.Play("SFX_Door_Slam"); }
+        void OnLeft(CustomerData c, bool angry) { if (angry && (c == null || !c.calmWhileWaiting)) Sfx.Play("SFX_Door_Slam"); }
 
         void OnStamped(CustomerData c, bool approved) => Sfx.Play(approved ? "SFX_Stamp_Approve" : "SFX_Stamp_Reject");
 
